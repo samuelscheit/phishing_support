@@ -1,0 +1,37 @@
+{
+  "name": "phishing_reporter",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/lodash": "^4.17.21",
+    "@types/mailparser": "^3.4.6",
+    "@types/nodemailer": "^7.0.4"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.9",
+    "@ai-sdk/google": "^3.0.6",
+    "@ai-sdk/openai": "^3.0.7",
+    "@bernierllc/smtp-analyzer": "^0.3.0",
+    "@langchain/openai": "^1.2.1",
+    "@toon-format/toon": "^2.1.0",
+    "ai": "^6.0.23",
+    "dotenv": "^17.2.3",
+    "langchain": "^1.2.6",
+    "lodash": "^4.17.21",
+    "mailparser": "^3.9.1",
+    "node-html-parser": "^7.0.2",
+    "nodemailer": "^7.0.12",
+    "openai": "^6.15.0",
+    "playwright": "^1.57.0",
+    "private-ip": "^3.0.2",
+    "puppeteer-core": "^24.34.0",
+    "puppeteer-real-browser": "^1.4.4",
+    "sanitize-filename": "^1.6.3",
+    "tldts": "^7.0.19"
+  }
+}

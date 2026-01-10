@@ -51,7 +51,13 @@ export async function getBrowser() {
 		// 		"--enable-webgl",
 		// 	],
 		// });
-		const args: string[] = [`--screen-size=1920,1080`, "--disable-extensions", "--disable-file-system"];
+		const args: string[] = [
+			`--screen-size=1920,1080`,
+			"--disable-extensions",
+			"--disable-file-system",
+			"--disable-dev-shm-usage",
+			"--disable-blink-features=AutomationControlled",
+		];
 
 		// Chromium inside containers commonly requires disabling sandbox.
 		if (isDocker || process.env.PUPPETEER_NO_SANDBOX === "true") {

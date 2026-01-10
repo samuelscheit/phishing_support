@@ -9,9 +9,9 @@ services:
             # SQLite database file inside the container
             DB_FILE_NAME: /data/phishing_reporter.sqlite
 
-            # Puppeteer / Chromium
-            CHROME_PATH: /usr/bin/chromium
-            PUPPETEER_HEADLESS: "true"
+            # Puppeteer / Chrome (headful via Xvfb)
+            CHROME_PATH: /usr/bin/google-chrome
+            PUPPETEER_HEADLESS: "false"
             DOCKER: "true"
 
             # Set these via your deployment environment / secrets manager

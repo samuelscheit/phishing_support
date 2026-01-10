@@ -1,3 +1,4 @@
+// @ts-ignore
 import * as zmq from "zeromq";
 import type { EventSubscriber } from "./event_transport";
 import { config } from "dotenv";

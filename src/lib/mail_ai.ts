@@ -149,7 +149,6 @@ ${toon.encode({ ...mail, eml: undefined })}`,
 			await emitStep(stream_id, "reporting", 90);
 			await reportEmailPhishing({
 				submissionId,
-				streamId: stream_id,
 				mail,
 				analysisText: analysis.output_text,
 			});

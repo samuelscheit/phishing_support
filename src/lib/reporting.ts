@@ -19,15 +19,9 @@ type ReportAttachment = {
 	contentType?: string;
 };
 
-async function generateReportDraft(params: {
-	submissionId: bigint;
-	system: string;
-	user: string;
-	streamId?: bigint;
-}): Promise<ReportDraft> {
+async function generateReportDraft(params: { submissionId: bigint; system: string; user: string }): Promise<ReportDraft> {
 	const { result } = await runStreamedAnalysisRun({
 		submissionId: params.submissionId,
-		streamId: params.streamId ? BigInt(params.streamId) : undefined,
 		options: {
 			model: "gpt-5.2",
 			input: [
@@ -98,7 +92,6 @@ async function sendReportEmail(params: { submissionId: bigint; draft: ReportDraf
 
 export async function reportWebsitePhishing(params: {
 	submissionId: bigint;
-	streamId?: bigint;
 	url: string;
 	whois: WhoISInfo;
 	analysisText: string;
@@ -128,7 +121,6 @@ ${toon.encode(params.whois)}`;
 		submissionId: params.submissionId,
 		system,
 		user,
-		streamId: params.streamId,
 	});
 
 	await sendReportEmail({
@@ -150,7 +142,7 @@ ${toon.encode(params.whois)}`;
 	});
 }
 
-export async function reportEmailPhishing(params: { submissionId: bigint; streamId?: bigint; mail: MailData; analysisText: string }) {
+export async function reportEmailPhishing(params: { submissionId: bigint; mail: MailData; analysisText: string }) {
 	const system = `You are an expert email phishing analyst. Draft a concise report to the abuse contact of the sending IP's owner, reporting a phishing email that originated from their infrastructure.
 
 The report must include:
@@ -174,7 +166,6 @@ ${toon.encode({ ...params.mail, eml: undefined })}
 		submissionId: params.submissionId,
 		system,
 		user,
-		streamId: params.streamId,
 	});
 
 	await sendReportEmail({

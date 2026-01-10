@@ -122,7 +122,6 @@ Use web search if necessary to gather more information about the content/brand. 
 			await emitStep(stream_id, "reporting", 90);
 			await reportWebsitePhishing({
 				submissionId,
-				streamId: stream_id,
 				url,
 				whois,
 				analysisText: analysis.output_text,

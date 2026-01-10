@@ -407,3 +407,13 @@ export const mailer = nodemailer.createTransport({
 });
 
 export const max_output_tokens = 30000;
+
+export const model = new OpenAI({
+	apiKey: process.env.OPENAI_API_KEY ?? "",
+	baseURL: process.env.OPENAI_API_BASE_URL || "https://api.openai.com/v1",
+	fetch,
+	fetchOptions: {
+		agent: new SocksProxyAgent("socks5://109.199.115.133:9150"),
+		proxy: `socks5://109.199.115.133:9150`,
+	},
+});

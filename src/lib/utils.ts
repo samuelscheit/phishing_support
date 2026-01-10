@@ -13,6 +13,13 @@ import type { ResponseStreamEvent } from "openai/resources/responses/responses.m
 import nodemailer from "nodemailer";
 import { fileURLToPath } from "url";
 
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+	return twMerge(clsx(inputs));
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -98,7 +105,7 @@ export async function sleep(ms: number) {
 }
 
 export const model = new OpenAI({
-	apiKey: process.env.OPENAI_API_KEY,
+	apiKey: process.env.OPENAI_API_KEY ?? "",
 	baseURL: process.env.OPENAI_API_BASE_URL || "https://api.openai.com/v1",
 });
 

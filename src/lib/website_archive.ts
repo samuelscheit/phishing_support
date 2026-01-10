@@ -1,69 +1,51 @@
-import fs, { writeFileSync } from "fs";
-import path from "path";
-import { config } from "dotenv";
-import { getBrowserPage, pathSafeFilename } from "./util";
+import { getBrowserPage, pathSafeFilename } from "./utils";
 
-export async function archiveWebsite(link: string) {
+export type ArchivedWebsiteResponse = {
+	name: string;
+	meta: {
+		url: string;
+		status: number;
+		headers: Record<string, string>;
+		method: string;
+		remoteAddress: unknown;
+		accessedAt: string;
+	};
+	body: Buffer;
+};
+
+export type WebsiteArchiveResult = {
+	url: string;
+	hostname: string;
+	screenshotPng: Buffer;
+	mhtml: Buffer;
+	html: Buffer;
+	text: Buffer;
+};
+
+export async function archiveWebsite(link: string): Promise<WebsiteArchiveResult> {
 	const page = await getBrowserPage();
 
-	const dirname = path.join(__dirname, "..", "..", "data", "website_assets", new URL(link).hostname);
-
-	page.on("response", async (response) => {
-		const url = response.url();
-		if (!url.startsWith("http")) return;
-
-		const uri = new URL(url);
-
-		const pathname = path.join(dirname, pathSafeFilename(`${new Date().getTime()}${uri.pathname}${uri.search}${uri.hash}`));
-		const meta_path = `${pathname}.meta.json`;
-
-		fs.mkdirSync(path.dirname(pathname), { recursive: true });
-
-		try {
-			const buffer = await response.buffer();
-			writeFileSync(pathname, buffer);
-			writeFileSync(
-				meta_path,
-				JSON.stringify(
-					{
-						url: response.url(),
-						status: response.status(),
-						headers: response.headers(),
-						method: response.request().method(),
-						remoteAddress: response.remoteAddress(),
-						accessedAt: new Date().toISOString(),
-					},
-					null,
-					"\t"
-				)
-			);
-
-			console.log(`Saved: ${url} -> ${pathname}`);
-		} catch (error) {
-			console.error(`Failed to save: ${url}`, error);
-		}
-	});
+	const url = new URL(link);
+	const hostname = url.hostname;
 
 	await page.goto(link, {
 		waitUntil: "networkidle0",
 	});
 
-	await page.screenshot({
-		path: path.join(dirname, "website.png"),
+	const screenshotPng = (await page.screenshot({
 		fullPage: true,
 		captureBeyondViewport: true,
 		type: "png",
-	});
+	})) as Buffer;
 
 	const cdp = await page.target().createCDPSession();
-
-	const result = await cdp.send("Page.captureSnapshot", {
+	const snapshot = await cdp.send("Page.captureSnapshot", {
 		format: "mhtml",
 	});
-	fs.writeFileSync(path.join(dirname, "website.mhtml"), result.data);
+	const mhtml = Buffer.from(snapshot.data, "utf-8");
 
 	// without js/css/style/svg
-	const raw_html = await page.evaluate(() => {
+	const rawHtml = await page.evaluate(() => {
 		// @ts-ignore
 		const doc = globalThis.document.cloneNode(true) as Document;
 		const elements = doc.querySelectorAll("script, style, link, svg, noscript, img");
@@ -75,9 +57,7 @@ export async function archiveWebsite(link: string) {
 		return doc.documentElement.outerHTML;
 	});
 
-	fs.writeFileSync(path.join(dirname, "website.html"), raw_html);
-
-	let text = await page.evaluate(() => {
+	let innerText = await page.evaluate(() => {
 		// @ts-ignore
 		return globalThis.document.body.innerText;
 	});
@@ -91,9 +71,16 @@ export async function archiveWebsite(link: string) {
 		);
 	});
 
-	text = (await page.title()) + "\n\n" + description + "\n\n" + text;
-
-	fs.writeFileSync(path.join(dirname, "website.txt"), text);
+	innerText = (await page.title()) + "\n\n" + description + "\n\n" + innerText;
 
 	await page.close();
+
+	return {
+		url: link,
+		hostname,
+		screenshotPng,
+		mhtml,
+		html: Buffer.from(rawHtml, "utf-8"),
+		text: Buffer.from(innerText, "utf-8"),
+	};
 }

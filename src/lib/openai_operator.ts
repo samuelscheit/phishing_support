@@ -4,7 +4,7 @@ import { config } from "dotenv";
 import { parse } from "node-html-parser";
 import { launch } from "puppeteer-core";
 import { tmpdir } from "os";
-import { getBrowser, getBrowserPage, pathSafeFilename } from "./util";
+import { getBrowser, getBrowserPage, pathSafeFilename } from "./utils";
 import { OpenAI } from "openai";
 
 config({

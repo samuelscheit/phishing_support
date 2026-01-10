@@ -1,7 +1,7 @@
 import fs, { writeFileSync } from "fs";
 import path from "path";
 import { config } from "dotenv";
-import { getBrowserPage, model, sleep } from "./util";
+import { getBrowserPage, model, sleep } from "./utils";
 import type { ResponseCreateParamsNonStreaming, ResponseInput } from "openai/resources/responses/responses.mjs";
 import type { ElementHandle, Page } from "rebrowser-puppeteer-core";
 

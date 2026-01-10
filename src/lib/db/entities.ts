@@ -1,0 +1,247 @@
+import crypto from "node:crypto";
+
+import { eq } from "drizzle-orm";
+
+import { db } from "./index";
+import { analysisRuns, artifacts, reports, submissions, type SubmissionData, type SubmissionKind, type SubmissionStatus } from "./schema";
+import { ResponseInputItem, ResponseOutputItem } from "openai/resources/responses/responses.mjs";
+import { generateId } from "./ids";
+
+function nowUnixSeconds(): number {
+	return Math.floor(Date.now() / 1000);
+}
+
+function nowDate(): Date {
+	return new Date();
+}
+
+export class SubmissionsEntity {
+	static async create(params: {
+		kind: SubmissionKind;
+		source?: string;
+		data: SubmissionData;
+		dedupeKey: string;
+		status?: SubmissionStatus;
+		info?: string;
+	}) {
+		const id = generateId();
+		const [row] = await db
+			.insert(submissions)
+			.values([
+				{
+					id,
+					kind: params.kind,
+					source: params.source,
+					data: params.data,
+					dedupeKey: params.dedupeKey,
+					status: params.status ?? "new",
+					info: params.info,
+					updatedAt: nowDate(),
+				},
+			])
+			.returning({ id: submissions.id });
+		return row!.id;
+	}
+
+	static async setStatus(id: bigint, status: SubmissionStatus, info?: string) {
+		await db.update(submissions).set({ status, info, updatedAt: nowDate() }).where(eq(submissions.id, id));
+	}
+
+	static async update(id: bigint, values: Partial<typeof submissions.$inferInsert>) {
+		await db
+			.update(submissions)
+			.set({ ...values, updatedAt: nowDate() })
+			.where(eq(submissions.id, id));
+	}
+
+	static async list(limit: number = 50) {
+		return await db.select().from(submissions).orderBy(submissions.createdAt).limit(limit);
+	}
+
+	static async get(id: bigint) {
+		const [row] = await db.select().from(submissions).where(eq(submissions.id, id));
+		return row;
+	}
+}
+
+export class AnalysisRunsEntity {
+	static async create(submissionId: bigint, input?: Array<ResponseInputItem>) {
+		const id = generateId();
+		const [row] = await db
+			.insert(analysisRuns)
+			.values([
+				{
+					id,
+					submissionId,
+					status: "running" as const,
+					input: input,
+					createdAt: nowDate(),
+				},
+			])
+			.returning({ id: analysisRuns.id });
+
+		return row!.id;
+	}
+
+	static async update(id: bigint, values: Partial<typeof analysisRuns.$inferInsert>) {
+		await db.update(analysisRuns).set(values).where(eq(analysisRuns.id, id));
+	}
+
+	static async listForSubmission(submissionId: bigint) {
+		return await db.select().from(analysisRuns).where(eq(analysisRuns.submissionId, submissionId));
+	}
+
+	static async complete(runId: bigint, output?: Array<ResponseOutputItem>) {
+		await db
+			.update(analysisRuns)
+			.set({
+				status: "completed",
+				output: output,
+			})
+			.where(eq(analysisRuns.id, runId));
+	}
+
+	static async fail(runId: bigint) {
+		await db.update(analysisRuns).set({ status: "failed" }).where(eq(analysisRuns.id, runId));
+	}
+}
+
+export class ArtifactsEntity {
+	static sha256Hex(buffer: Buffer): string {
+		return crypto.createHash("sha256").update(buffer).digest("hex");
+	}
+
+	static async saveBuffer(params: { submissionId?: bigint; name?: string; kind: string; mimeType?: string; buffer: Buffer }) {
+		const id = generateId();
+		const [row] = await db
+			.insert(artifacts)
+			.values([
+				{
+					id,
+					submissionId: params.submissionId,
+					name: params.name,
+					kind: params.kind,
+					mimeType: params.mimeType,
+					sha256: this.sha256Hex(params.buffer),
+					size: params.buffer.byteLength,
+					blob: params.buffer,
+					createdAt: nowDate(),
+				},
+			])
+			.returning({ id: artifacts.id });
+		return row!.id;
+	}
+
+	static async listForSubmission(submissionId: bigint) {
+		return await db.select().from(artifacts).where(eq(artifacts.submissionId, submissionId));
+	}
+
+	static async get(id: bigint) {
+		const [row] = await db.select().from(artifacts).where(eq(artifacts.id, id));
+		return row;
+	}
+
+	static async saveWebsiteArtifacts({
+		archive,
+		submissionId,
+	}: {
+		submissionId: bigint;
+		archive: {
+			screenshotPng: Buffer;
+			mhtml: Buffer;
+			html: Buffer;
+			text: Buffer;
+		};
+	}) {
+		const [screenshotId, mhtmlId, htmlId, textId] = await Promise.all([
+			this.saveBuffer({
+				submissionId: submissionId,
+				name: `website.png`,
+				kind: "website_png",
+				mimeType: "image/png",
+				buffer: archive.screenshotPng,
+			}),
+			this.saveBuffer({
+				submissionId: submissionId,
+				name: `website.mhtml`,
+				kind: "website_mhtml",
+				mimeType: "text/mhtml",
+				buffer: archive.mhtml,
+			}),
+			this.saveBuffer({
+				submissionId: submissionId,
+				name: `website.html`,
+				kind: "website_html",
+				mimeType: "text/html",
+				buffer: archive.html,
+			}),
+			this.saveBuffer({
+				submissionId: submissionId,
+				name: `website.txt`,
+				kind: "website_text",
+				mimeType: "text/plain",
+				buffer: archive.text,
+			}),
+		]);
+
+		return { screenshotId, mhtmlId, htmlId, textId };
+	}
+}
+
+export class ReportsEntity {
+	static async create(params: { submissionId: bigint; analysisRunId?: bigint; type: string; data: any }) {
+		const id = generateId();
+		const [row] = await db
+			.insert(reports)
+			.values([
+				{
+					id,
+					submissionId: params.submissionId,
+					analysisRunId: params.analysisRunId,
+					channel: "ui",
+					to: "internal",
+					body: JSON.stringify(params.data),
+					status: "sent",
+					data: params.data,
+					createdAt: nowDate(),
+					updatedAt: nowDate(),
+				},
+			])
+			.returning({ id: reports.id });
+		return row!.id;
+	}
+
+	static async listForSubmission(submissionId: bigint) {
+		return await db.select().from(reports).where(eq(reports.submissionId, submissionId));
+	}
+
+	static async createDraft(params: {
+		submissionId: bigint;
+		analysisRunId?: bigint;
+		to: string;
+		subject?: string;
+		body: string;
+		attachmentsArtifactIds?: string[];
+	}) {
+		const id = generateId();
+		const [row] = await db
+			.insert(reports)
+			.values([
+				{
+					id,
+					submissionId: params.submissionId,
+					analysisRunId: params.analysisRunId,
+					channel: "email",
+					to: params.to,
+					subject: params.subject,
+					body: params.body,
+					status: "draft",
+					attachmentsArtifactIds: params.attachmentsArtifactIds,
+					createdAt: nowDate(),
+					updatedAt: nowDate(),
+				},
+			])
+			.returning({ id: reports.id });
+		return row!.id;
+	}
+}

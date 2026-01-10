@@ -5,9 +5,35 @@ import { config } from "dotenv";
 import { parse } from "node-html-parser";
 import { launch } from "puppeteer-core";
 import { tmpdir } from "os";
-import { getBrowser, getBrowserPage } from "./util";
+import { getBrowser, getBrowserPage } from "./utils";
 import is_ip_private from "private-ip";
 import { analyzeSMTPHeadersFromRaw } from "@bernierllc/smtp-analyzer";
+
+export function getAddressesText(obj: AddressObject[] | AddressObject | undefined): string {
+	if (!obj) return "";
+
+	let addresses: AddressObject[] = [];
+
+	if (Array.isArray(obj)) {
+		addresses = obj;
+	} else {
+		addresses = [obj];
+	}
+
+	return addresses.map(getAddressText).join("\n");
+}
+
+function getAddressText(obj: AddressObject | undefined): string {
+	if (!obj) return "";
+
+	let text = "";
+
+	obj.value.forEach((addr) => {
+		text += `"${addr.name}" <${addr.address}>\n`;
+	});
+
+	return text.trim();
+}
 
 export function getMailLinks(result: Awaited<ReturnType<typeof simpleParser>>) {
 	try {
@@ -78,37 +104,6 @@ function getHeaderValues(headers: HeaderMap, key: string): string[] {
 	return normalizeHeaderValue(value);
 }
 
-type AuthResult = {
-	mechanism: string;
-	result: string;
-	details: string[];
-	raw: string;
-};
-
-function parseAuthResults(lines: string[]): AuthResult[] {
-	const entries: AuthResult[] = [];
-	const mechanismRegex = /\b(dkim|dmarc|spf|arc|bimi|auth)=([a-z]+)/gi;
-	const detailRegex = /\b(header\.from|header\.d|header\.i|smtp\.mailfrom|smtp\.helo)=([^\s;]+)/gi;
-
-	for (const raw of lines) {
-		const details: string[] = [];
-		for (const match of raw.matchAll(detailRegex)) {
-			details.push(`${match[1]}=${match[2]}`);
-		}
-
-		for (const match of raw.matchAll(mechanismRegex)) {
-			entries.push({
-				mechanism: match[1]?.toLowerCase() || "",
-				result: match[2]?.toLowerCase() || "",
-				details,
-				raw,
-			});
-		}
-	}
-
-	return entries;
-}
-
 type ReceivedHop = {
 	fromHost: string;
 	fromIp: string;
@@ -166,7 +161,7 @@ export function analyzeHeaders(headers: string) {
 	const arcInfo = getHeaderValues(headersMap, "x-arc-info");
 
 	const hops = parseReceived(result.data.routing.totalHops.map((x) => x.raw));
-	const sourceHop = [...hops].find((hop) => !is_ip_private(hop.fromIp)) || [...hops].reverse().find((hop) => hop.fromIp);
+	const sourceHop = [...hops].find((hop) => hop.fromIp && !is_ip_private(hop.fromIp)) || [...hops].reverse().find((hop) => hop.fromIp);
 
 	result.data.routing.totalHops.forEach((x) => {
 		// @ts-ignore

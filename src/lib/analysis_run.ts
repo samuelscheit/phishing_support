@@ -5,7 +5,7 @@ import { logAndPersistStream } from "./artifact";
 import { model } from "./utils";
 import { publishEvent } from "./event/event_transport";
 
-export async function runStreamedAnalysisRun(params: { submissionId: bigint; options: ResponseCreateParamsStreaming; streamId?: bigint }) {
+export async function runStreamedAnalysisRun(params: { submissionId: bigint; options: ResponseCreateParamsStreaming }) {
 	if (params.options.stream !== true) {
 		throw new Error("runStreamedAnalysisRun requires options.stream === true");
 	}
@@ -16,7 +16,7 @@ export async function runStreamedAnalysisRun(params: { submissionId: bigint; opt
 
 	const runId = await AnalysisRunsEntity.create(params.submissionId, inputForDb);
 
-	if (params.streamId) await publishEvent(`run:${params.streamId}`, { type: "run.created", runId, submissionId: params.submissionId });
+	if (params.submissionId) await publishEvent(`run:${params.submissionId}`, { type: "run.created", runId });
 
 	try {
 		var stream = await model.responses.create(params.options);

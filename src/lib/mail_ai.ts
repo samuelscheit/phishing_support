@@ -70,7 +70,6 @@ export async function analyzeMail(emlContent: string, stream_id: bigint) {
 
 		const { result: analysis } = await runStreamedAnalysisRun({
 			submissionId,
-			streamId: stream_id,
 			options: {
 				model: "gpt-5.2",
 				input: [
@@ -113,7 +112,6 @@ ${toon.encode({ ...mail, eml: undefined })}`,
 
 		const { result: structuredResponse } = await runStreamedAnalysisRun({
 			submissionId,
-			streamId: stream_id,
 			options: {
 				stream: true,
 				model: "gpt-5.2",

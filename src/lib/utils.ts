@@ -3,8 +3,17 @@ import path from "path";
 import fs from "fs";
 import { tmpdir } from "os";
 
-import { connect } from "puppeteer-real-browser";
-import type { Browser } from "rebrowser-puppeteer-core";
+import {
+	CDPSession,
+	Frame,
+	HTTPResponse,
+	launch,
+	Page,
+	Protocol,
+	PuppeteerLifeCycleEvent,
+	type Browser,
+	type GoToOptions,
+} from "rebrowser-puppeteer-core";
 import sanitize from "sanitize-filename";
 import OpenAI from "openai";
 import { config } from "dotenv";
@@ -12,6 +21,8 @@ import type { Stream } from "openai/streaming";
 import type { ResponseStreamEvent } from "openai/resources/responses/responses.mjs";
 import nodemailer from "nodemailer";
 import { fileURLToPath } from "url";
+import { SocksProxyAgent } from "socks-proxy-agent";
+import { fetch } from "netbun";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,70 +37,258 @@ let browserPromise: Promise<Browser> | null = null;
 export async function getBrowser() {
 	// TODO: harden puppeteer/browser for security
 
-	const isDocker = process.env.DOCKER === "true" || process.env.CONTAINER === "true";
-	const headless = process.env.PUPPETEER_HEADLESS !== "false";
-	const chromePathFromEnv = process.env.CHROME_PATH;
-	const defaultMacChromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+	const isDocker = process.env.DOCKER === "true" || process.env.PUPPETEER_NO_SANDBOX === "true";
+	const chromePath = process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 	const userDataDir = path.join(tmpdir(), "puppeteer-user-data");
 	fs.mkdirSync(userDataDir, { recursive: true });
 	console.log(`Created temporary user data directory at: ${userDataDir}`);
 
 	if (!browserPromise) {
-		// browserPromise = launch({
-		// 	executablePath: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`,
-		// 	headless: true,
-		// 	userDataDir,
-		// 	ignoreDefaultArgs: ["--enable-automation"],
-		// 	args: [
-		// 		"--disable-features=site-per-process",
-		// 		"--disable-advertisements",
-		// 		"--enable-javascript",
-		// 		"--disable-blink-features=AutomationControlled",
-		// 		"--no-sandbox",
-		// 		"--disable-gpu",
-		// 		"--enable-webgl",
-		// 	],
-		// });
 		const args: string[] = [
 			`--screen-size=1920,1080`,
 			"--disable-extensions",
 			"--disable-file-system",
 			"--disable-dev-shm-usage",
 			"--disable-blink-features=AutomationControlled",
+			"--disable-features=site-per-process",
+			"--disable-advertisements",
+			"--enable-javascript",
+			"--disable-blink-features=AutomationControlled",
+			"--disable-gpu",
+			"--enable-webgl",
 		];
 
 		// Chromium inside containers commonly requires disabling sandbox.
-		if (isDocker || process.env.PUPPETEER_NO_SANDBOX === "true") {
+		if (isDocker) {
 			args.push("--no-sandbox", "--disable-setuid-sandbox");
 		}
 
-		const result = await connect({
-			headless,
+		browserPromise = launch({
+			executablePath: chromePath,
+			headless: false,
+			userDataDir,
+			ignoreDefaultArgs: ["--enable-automation"],
 			args,
-			connectOption: {
-				downloadBehavior: {
-					policy: "deny",
-				},
-				acceptInsecureCerts: true,
+			downloadBehavior: {
+				policy: "deny",
 			},
-			turnstile: true,
-			customConfig: {
-				userDataDir: userDataDir,
-				chromePath: chromePathFromEnv || (!isDocker ? defaultMacChromePath : undefined),
-			},
+			acceptInsecureCerts: true,
 		});
-
-		browserPromise = Promise.resolve(result.browser);
 	}
 
 	return browserPromise;
 }
 
+async function waitForCDPElement({
+	cdp,
+	nodeId,
+	selector,
+	intervalMs = 50,
+	timeoutMs = 30000,
+}: {
+	cdp: CDPSession;
+	nodeId: number;
+	selector: string;
+	timeoutMs?: number;
+	intervalMs?: number;
+}) {
+	const start = Date.now();
+
+	while (true) {
+		if (Date.now() - start > timeoutMs) {
+			throw new Error(`Timeout waiting for element matching selector: ${selector}`);
+		}
+
+		const { nodeId: elementNodeId } = await cdp.send("DOM.querySelector", {
+			nodeId,
+			selector,
+		});
+
+		if (elementNodeId && elementNodeId !== 0) {
+			return elementNodeId;
+		}
+
+		await sleep(intervalMs);
+	}
+}
+
+function recursiveSearchDocument(document: Protocol.DOM.Node, predicate: (node: Protocol.DOM.Node) => boolean): Protocol.DOM.Node | null {
+	if (predicate(document)) {
+		return document;
+	}
+
+	for (const child of document.children || []) {
+		const result = recursiveSearchDocument(child, predicate);
+		if (result) {
+			return result;
+		}
+	}
+	for (const child of document.shadowRoots || []) {
+		const result = recursiveSearchDocument(child, predicate);
+		if (result) {
+			return result;
+		}
+	}
+
+	return null;
+}
+
+export class DeferredPromise<T> {
+	public promise: Promise<T>;
+	public resolve!: (value: T | PromiseLike<T>) => void;
+	public reject!: (reason?: any) => void;
+
+	constructor() {
+		this.promise = new Promise<T>((resolve, reject) => {
+			this.resolve = resolve;
+			this.reject = reject;
+		});
+	}
+
+	then(onfulfilled?: (value: T) => void, onrejected?: (reason: any) => void) {
+		return this.promise.then(onfulfilled, onrejected);
+	}
+
+	catch(onrejected?: (reason: any) => void) {
+		return this.promise.catch(onrejected);
+	}
+}
+
+const isCloudflareChallengeUrl = (url: string) =>
+	url.includes("challenges.cloudflare.com") || url.includes("/cdn-cgi/challenge-platform/") || url.includes("cf-challenge");
+
 export async function getBrowserPage() {
 	const browser = await getBrowser();
 	const page = await browser.newPage();
+	let cloudflareWait = new DeferredPromise<void>();
+
+	const waitForCloudflare = async (frame: Frame, page: Page) => {
+		const source = page.url();
+
+		console.log(`[Cloudflare] challenge (${source}), solving...`);
+
+		await frame.waitForSelector(`body`);
+
+		// @ts-ignore
+		const target = browser.targets().find((x) => x._targetId === frame._id)!;
+		const cdp = await target.createCDPSession();
+
+		const document = await cdp.send("DOM.getDocument", {
+			depth: -1,
+			pierce: true,
+		});
+
+		const body = recursiveSearchDocument(document.root, (node) => node.nodeName.toLowerCase() === "body");
+
+		const [root] = body?.shadowRoots || [];
+		if (!root) throw new Error("No shadow root found in body");
+
+		const input = await waitForCDPElement({
+			cdp,
+			nodeId: root.nodeId,
+			selector: `input[type="checkbox"]`,
+			timeoutMs: 30000,
+		});
+
+		const { node } = await cdp.send("DOM.describeNode", {
+			nodeId: input,
+			depth: -1,
+			pierce: true,
+		});
+
+		// @ts-ignore
+		const handle = (await frame.mainRealm().adoptBackendNode(node.backendNodeId)) as ElementHandle<Element>;
+
+		await handle.click();
+
+		await page.waitForNavigation({ timeout: 30000 }).catch((error) => {
+			console.warn(`Cloudflare wait timed out:`, error);
+		});
+		cloudflareWait.resolve();
+
+		return cloudflareWait;
+	};
+
+	page.on("framenavigated", async (frame) => {
+		const url = frame.url();
+
+		if (isCloudflareChallengeUrl(url)) {
+			await waitForCloudflare(frame, page);
+		}
+	});
+
+	page.on("dialog", async (dialog) => {
+		await sleep(1000 * Math.random() + 1000);
+		await dialog.dismiss();
+	});
 	await page.setViewport({ width: 1920, height: 1080 });
+
+	const originalGoto = page.goto.bind(page);
+
+	async function handleResponse(response: HTTPResponse | null, waitUntil?: string, timeout = 30000) {
+		// console.log("navigated", "status:", response?.status(), "url:", response?.url(), "headers:", response?.headers()["cf-mitigated"]);
+
+		if (response?.status() === 403 && response.headers()["cf-mitigated"] === "challenge") {
+			console.log("[Cloudflare] challenge (403), waiting...");
+			// await waitForCloudflare("response 403");
+			response = await page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 30000 });
+
+			cloudflareWait = new DeferredPromise<void>();
+
+			await cloudflareWait;
+			console.log("[Cloudflare] challenge passed");
+		}
+
+		if (waitUntil === "networkidle0") {
+			await page.waitForNetworkIdle({
+				concurrency: 0,
+				idleTime: 500,
+				timeout,
+			});
+		} else if (waitUntil === "networkidle2") {
+			await page.waitForNetworkIdle({
+				concurrency: 2,
+				idleTime: 500,
+				timeout,
+			});
+		} else if (waitUntil === "load") {
+			const start = Date.now();
+			while (true) {
+				try {
+					const readyState = await page.evaluate(() => document.readyState);
+					if (readyState === "complete") break;
+				} catch (error) {}
+				if (Date.now() - start > timeout) {
+					throw new Error(`Timeout waiting for load event`);
+				}
+				await sleep(50);
+			}
+		} else if (waitUntil === "domcontentloaded") {
+			const start = Date.now();
+			while (true) {
+				try {
+					var readyState = await page.evaluate(() => document.readyState);
+
+					if (readyState === "interactive" || readyState === "complete") break;
+				} catch (error) {}
+				if (Date.now() - start > timeout) {
+					throw new Error(`Timeout waiting for domcontentloaded event`);
+				}
+				await sleep(50);
+			}
+		}
+
+		return response;
+	}
+
+	page.goto = async (url: string, options?: GoToOptions) => {
+		const response = await originalGoto(url, {
+			waitUntil: "domcontentloaded",
+		});
+
+		return await handleResponse(response, (options?.waitUntil as PuppeteerLifeCycleEvent) || "load", options?.timeout || 30000);
+	};
 
 	return page;
 }
@@ -112,11 +311,6 @@ export function pathSafeFilename(input: string, { fallback = "file", maxLen = 18
 export async function sleep(ms: number) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
-export const model = new OpenAI({
-	apiKey: process.env.OPENAI_API_KEY ?? "",
-	baseURL: process.env.OPENAI_API_BASE_URL || "https://api.openai.com/v1",
-});
 
 export async function logStream(response: Stream<ResponseStreamEvent>) {
 	for await (const chunk of response) {

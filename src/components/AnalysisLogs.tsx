@@ -34,7 +34,6 @@ export function AnalysisLogs({ streamId, output }: { streamId: string; output?: 
 	const streamingIndexRef = useRef<number | null>(null);
 	const streamingTextRef = useRef("");
 	const outputText = useMemo(() => extractOutputText(output), [output]);
-	console.log("analysis logs", output, outputText);
 
 	const appendStreamingText = (delta: string) => {
 		streamingTextRef.current += delta;

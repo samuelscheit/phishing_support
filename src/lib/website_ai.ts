@@ -40,7 +40,6 @@ export async function analyzeWebsite(url: string, stream_id?: bigint) {
 
 		const { result: analysis } = await runStreamedAnalysisRun({
 			submissionId,
-			streamId: stream_id,
 			options: {
 				model: "gpt-5.2",
 				input: [
@@ -85,7 +84,6 @@ Use web search if necessary to gather more information about the content/brand. 
 		await emitStep(stream_id, "structured_response", 75);
 		const { result: structuredResponse } = await runStreamedAnalysisRun({
 			submissionId,
-			streamId: stream_id,
 			options: {
 				model: "gpt-5-nano",
 				input: [

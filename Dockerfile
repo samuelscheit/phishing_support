@@ -65,6 +65,27 @@ ENV CHROME_PATH=/usr/bin/google-chrome
 ENV PUPPETEER_HEADLESS=false
 ENV DOCKER=true
 
+# Start Xvfb explicitly and then run Next.
+RUN set -eux; \
+  cat > /usr/local/bin/start-with-xvfb.sh <<'SH'
+#!/bin/sh
+set -e
+
+export DISPLAY="${DISPLAY:-:99}"
+
+Xvfb "$DISPLAY" -screen 0 1280x1024x24 -nolisten tcp &
+XVFB_PID=$!
+
+cleanup() {
+  kill "$XVFB_PID" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT INT TERM
+
+exec bunx --bun next start -H 0.0.0.0 -p "${PORT:-3000}"
+SH
+
+RUN chmod +x /usr/local/bin/start-with-xvfb.sh
+
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/bun.lock ./
 COPY --from=builder /app/next.config.ts ./
@@ -75,4 +96,4 @@ COPY --from=builder /app/drizzle ./drizzle
 
 EXPOSE 3000
 
-CMD ["xvfb-run", "-a", "bun", "run", "start"]
+CMD ["/usr/local/bin/start-with-xvfb.sh"]

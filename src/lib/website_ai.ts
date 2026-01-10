@@ -1,11 +1,12 @@
 import * as toon from "@toon-format/toon";
 import { archiveWebsite } from "./website_archive";
-import { ReportsEntity, SubmissionsEntity, ArtifactsEntity } from "./db/entities";
+import { SubmissionsEntity, ArtifactsEntity } from "./db/entities";
 import { getInfo } from "./website_info";
 import { runStreamedAnalysisRun } from "./analysis_run";
-import { publishEvent } from "./zmq";
+import { publishEvent } from "./event/event_transport";
+import { markSubmissionInvalid, reportWebsitePhishing } from "./reporting";
 
-export async function emitStep(streamId: bigint | undefined, step: string, progress: number) {
+export async function emitStep(streamId: bigint | string | undefined, step: string, progress: number) {
 	if (!streamId) return;
 	await publishEvent(`run:${streamId}`, { type: "analysis.step", step, progress });
 }
@@ -18,6 +19,7 @@ export async function analyzeWebsite(url: string, stream_id?: bigint) {
 	const whois = await getInfo(url);
 
 	await emitStep(stream_id, "create_submission", 10);
+
 	// Create submission
 	const submissionId = await SubmissionsEntity.create({
 		kind: "website",
@@ -25,6 +27,7 @@ export async function analyzeWebsite(url: string, stream_id?: bigint) {
 		dedupeKey: `website-${uri.hostname}`,
 		status: "running",
 		source: url,
+		id: stream_id,
 	});
 
 	try {
@@ -119,15 +122,21 @@ Use web search if necessary to gather more information about the content/brand. 
 
 		if (phishing) {
 			await emitStep(stream_id, "reporting", 90);
-			await ReportsEntity.create({
+			await reportWebsitePhishing({
 				submissionId,
-				type: "phishing_site",
-				data: { phishing },
+				streamId: stream_id,
+				url,
+				whois,
+				analysisText: analysis.output_text,
+				archive: {
+					screenshotPng: archive.screenshotPng,
+					mhtml: archive.mhtml,
+				},
 			});
-			await SubmissionsEntity.update(submissionId, { status: "reported" });
 		} else {
-			await SubmissionsEntity.update(submissionId, { status: "invalid" });
+			await markSubmissionInvalid(submissionId);
 		}
+
 		await emitStep(stream_id, "completed", 100);
 	} catch (error) {
 		console.error("Website analysis failed:", error);
@@ -137,86 +146,3 @@ Use web search if necessary to gather more information about the content/brand. 
 
 	return submissionId;
 }
-
-// const ip_rdaps = uniqBy(whois.ip_rdaps, (x) => x.abuse?.email || x.handle);
-
-// ip_rdaps.map(async (rdap) => {
-// 	if (!rdap.abuse) return;
-
-// 	const reportMailStream = await model.responses.create({
-// 		model: "gpt-5.2",
-// 		input: [
-// 			{
-// 				role: "system",
-// 				content: `You are an expert phishing analyst. Your task is to draft a concise report to the IP address space's abuse contact about a phishing website hosted on their IP address space.
-
-// The report should include:
-// 1) A summary of the phishing analysis (be confident, no need to mention uncertainty)
-// 2) The phishing website URL and WhoIs/DNS/hosting details
-// 3) Request for takedown of the phishing site and any further investigation/mitigation.
-
-// The website's content along with screenshot will automatically be attached as an attachment.
-// You act on behalf of "the team of https://phishing.support".
-// The tone should be professional and factual.`,
-// 			},
-// 			{
-// 				role: "user",
-// 				content: `Draft the report based on this analysis:
-
-// ${analysis.output_text}
-
-// Phishing Website URL:
-// ${link}
-
-// One DNS A/AAAA Record of domain ${link}
-// points to IP: ${rdap.ip} of ${rdap.name || rdap.handle}
-
-// RDAP information:
-// ${toon.encode(rdap)}`,
-// 			},
-// 		],
-// 		max_output_tokens,
-// 		tool_choice: "required",
-// 		text: {
-// 			format: {
-// 				type: "json_schema",
-// 				name: "send_mail",
-// 				schema: {
-// 					type: "object",
-// 					properties: {
-// 						to: { type: "string", description: "Recipient email address" },
-// 						subject: { type: "string", description: "Email subject" },
-// 						body: { type: "string", description: "Email body content" },
-// 					},
-// 					required: ["to", "subject", "body"],
-// 					additionalProperties: false,
-// 				},
-// 				strict: true,
-// 			},
-// 			verbosity: "low",
-// 		},
-// 		stream: true,
-// 	});
-
-// const { to, subject, body } = reportMailResult.output_parsed;
-
-// const mailSendResult = await mailer.sendMail({
-// 	from: process.env.SMTP_FROM || "Phishing Support <report@phishing.support>",
-// 	// to,
-// 	// TODO: change back to actual abuse contact
-// 	to: "samuel.scheit@me.com",
-// 	subject,
-// 	text: body + "\n\n",
-// 	attachments: [
-// 		{
-// 			filename: "website.mhtml",
-// 			content: fs.createReadStream(path.join(dirname, "website.mhtml")),
-// 			contentType: "text/mhtml",
-// 		},
-// 		{
-// 			filename: "website.png",
-// 			content: image,
-// 			contentType: "image/png",
-// 		},
-// 	],
-// });

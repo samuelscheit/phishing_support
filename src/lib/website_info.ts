@@ -1,7 +1,7 @@
 import dns from "node:dns/promises";
 import uniqBy from "lodash/uniqBy";
 import uniq from "lodash/uniq";
-import tldts from "tldts";
+import { parse } from "tldts";
 
 export async function queryDns(domain: string) {
 	const [a, aaaa, ns, mx, cname, txt] = await Promise.allSettled([
@@ -253,7 +253,7 @@ export async function getInfo(domain_or_ip: string): Promise<WhoISInfo> {
 		return { ip_rdaps: [rdap] };
 	}
 
-	const { domain } = tldts.parse(domain_or_ip);
+	const { domain } = parse(domain_or_ip);
 	var root_info = undefined as Awaited<ReturnType<typeof getInfo>> | undefined;
 
 	if (domain !== domain_or_ip && domain) {
@@ -263,7 +263,7 @@ export async function getInfo(domain_or_ip: string): Promise<WhoISInfo> {
 
 	const [rdap, dns_info] = await Promise.all([queryRDAPDomain(target), queryDns(target)]);
 
-	var nameservers = uniq([...dns_info.NS, ...(rdap?.nameservers || [])].map((x) => tldts.parse(x).domain).filter(Boolean) as string[]);
+	var nameservers = uniq([...dns_info.NS, ...(rdap?.nameservers || [])].map((x) => parse(x).domain).filter(Boolean) as string[]);
 	let nameserver_info = undefined as RDAPDomainInfo[] | undefined;
 
 	if (nameservers.length) {

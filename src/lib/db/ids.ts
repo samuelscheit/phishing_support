@@ -6,6 +6,7 @@ export function generateId(): bigint {
 	return snowflake.generate();
 }
 
-BigInt.prototype.toString = function (): string {
+// @ts-ignore
+BigInt.prototype.toJSON = function (): string {
 	return this.valueOf().toString();
 };

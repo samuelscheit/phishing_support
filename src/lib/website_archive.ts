@@ -32,11 +32,11 @@ export async function archiveWebsite(link: string): Promise<WebsiteArchiveResult
 		waitUntil: "networkidle0",
 	});
 
-	const screenshotPng = (await page.screenshot({
+	const screenshotPng = await page.screenshot({
 		fullPage: true,
 		captureBeyondViewport: true,
 		type: "png",
-	})) as Buffer;
+	});
 
 	const cdp = await page.target().createCDPSession();
 	const snapshot = await cdp.send("Page.captureSnapshot", {
@@ -78,7 +78,7 @@ export async function archiveWebsite(link: string): Promise<WebsiteArchiveResult
 	return {
 		url: link,
 		hostname,
-		screenshotPng,
+		screenshotPng: Buffer.from(screenshotPng),
 		mhtml,
 		html: Buffer.from(rawHtml, "utf-8"),
 		text: Buffer.from(innerText, "utf-8"),

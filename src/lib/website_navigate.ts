@@ -313,8 +313,6 @@ ${(input_elements as any[]).map((el) => `LABEL: "${el.label}" (${el.description}
 		// @ts-ignore
 		console.log(options.input[1].content.slice(0, -1));
 
-		// if (1 == 1) process.exit();
-
 		var response: any = await model.responses.create(options);
 
 		console.log(response.output, step);

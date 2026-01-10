@@ -1,7 +1,7 @@
 import { Stream } from "openai/streaming";
 import { ResponseStreamEvent } from "openai/resources/responses/responses.mjs";
 import { AnalysisRunsEntity } from "./db/entities";
-import { publishEvent } from "./zmq";
+import { publishEvent } from "./event/event_transport";
 
 /**
  * Consumes an OpenAI stream, logs it to stdout, publishes it to ZeroMQ,

@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from "react";
 import { format } from "date-fns";
 import { AnalysisLogs } from "@/components/AnalysisLogs";
+import { AnalysisProgress } from "@/components/AnalysisProgress";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -135,47 +136,52 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 						</div>
 					</CardContent>
 				</Card>
-
-				<Card>
-					<CardHeader>
-						<CardTitle className="text-lg">Detections</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-4">
-						{submission.reports.length > 0 ? (
-							submission.reports.map((r: any) => (
-								<div key={r.id} className="flex items-start gap-2 border-l-2 border-red-500 pl-3">
-									<ShieldAlert className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-									<div>
-										<p className="font-semibold text-sm capitalize">{r.type.replace("_", " ")}</p>
-										<p className="text-xs text-muted-foreground line-clamp-2">{r.data?.summary || "No summary"}</p>
-									</div>
-								</div>
-							))
-						) : (
-							<div className="text-center py-6 text-muted-foreground text-sm">No threats detected yet.</div>
-						)}
-					</CardContent>
-				</Card>
 			</div>
 
-			<Tabs defaultValue="runs" className="w-full">
+			<Tabs defaultValue="reports" className="w-full">
 				<TabsList>
-					<TabsTrigger value="runs">Analysis Runs ({submission.analysisRuns.length})</TabsTrigger>
-					<TabsTrigger value="artifacts">Artifacts</TabsTrigger>
+					<TabsTrigger value="reports">Reports ({submission.reports.length})</TabsTrigger>
+					<TabsTrigger value="runs">Analysis ({submission.analysisRuns.length})</TabsTrigger>
+					<TabsTrigger value="artifacts">Artifacts ({submission.artifacts.length})</TabsTrigger>
 				</TabsList>
+				<TabsContent value="reports" className="space-y-4 mt-4">
+					{submission.reports.length > 0 ? (
+						submission.reports.map((r: any) => (
+							<Card key={r.id} className="overflow-hidden">
+								<CardHeader className="bg-muted/50 py-3">
+									<div className="flex justify-between items-center">
+										<CardTitle className="text-sm font-mono uppercase">Report #{r.id}</CardTitle>
+										<Badge variant="outline">{r.type || "report"}</Badge>
+									</div>
+								</CardHeader>
+								<CardContent className="p-4 space-y-3">
+									<div className="text-sm">
+										<span className="text-muted-foreground">To:</span> {r.to || "Unknown"}
+									</div>
+									<div className="text-sm">
+										<span className="text-muted-foreground">Subject:</span> {r.subject || "Untitled"}
+									</div>
+									<div className="text-sm whitespace-pre-wrap">{r.body || "No body"}</div>
+								</CardContent>
+							</Card>
+						))
+					) : (
+						<div className="text-center py-10 text-muted-foreground">No reports yet.</div>
+					)}
+				</TabsContent>
 				<TabsContent value="runs" className="space-y-4 mt-4">
+					<AnalysisProgress streamId={submission.id} />
+
 					{submission.analysisRuns.map((run: any) => (
 						<Card key={run.id} className="overflow-hidden">
 							<CardHeader className="bg-muted/50 py-3">
 								<div className="flex justify-between items-center">
-									<CardTitle className="text-sm font-mono uppercase">
-										Run #{run.id} - {run.model || "Unknown Model"}
-									</CardTitle>
+									<CardTitle className="text-sm font-mono uppercase">Run #{run.id}</CardTitle>
 									<Badge variant={run.status === "completed" ? "default" : "outline"}>{run.status}</Badge>
 								</div>
 							</CardHeader>
 							<CardContent className="p-0">
-								<AnalysisLogs runId={run.id} />
+								<AnalysisLogs streamId={run.id} output={run.output} />
 							</CardContent>
 						</Card>
 					))}

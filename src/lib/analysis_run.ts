@@ -3,13 +3,9 @@ import type { ResponseCreateParamsStreaming, ResponseInputItem } from "openai/re
 import { AnalysisRunsEntity } from "./db/entities";
 import { logAndPersistStream } from "./artifact";
 import { model } from "./utils";
-import { publishEvent } from "./zmq";
+import { publishEvent } from "./event/event_transport";
 
-export async function runStreamedAnalysisRun<TFinal = any>(params: {
-	submissionId: bigint;
-	options: ResponseCreateParamsStreaming;
-	streamId?: bigint;
-}) {
+export async function runStreamedAnalysisRun(params: { submissionId: bigint; options: ResponseCreateParamsStreaming; streamId?: bigint }) {
 	if (params.options.stream !== true) {
 		throw new Error("runStreamedAnalysisRun requires options.stream === true");
 	}
@@ -22,7 +18,14 @@ export async function runStreamedAnalysisRun<TFinal = any>(params: {
 
 	if (params.streamId) await publishEvent(`run:${params.streamId}`, { type: "run.created", runId, submissionId: params.submissionId });
 
-	const stream = await model.responses.create(params.options);
-	const result = (await logAndPersistStream(stream, runId, [runId, params.streamId])) as TFinal;
+	try {
+		var stream = await model.responses.create(params.options);
+	} catch (err) {
+		console.dir(params.options, { depth: null });
+
+		throw err;
+	}
+	// const result = (await logAndPersistStream(stream, runId, [runId, params.streamId])) as TFinal;
+	const result = await logAndPersistStream(stream, runId);
 	return { runId, result };
 }

@@ -1,4 +1,5 @@
 import * as zmq from "zeromq";
+import type { EventSubscriber } from "./event_transport";
 import { config } from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -24,7 +25,7 @@ export async function getZmqPublisher() {
 	return publisher;
 }
 
-export async function publishEvent(topic: string, data: any) {
+export async function publishEvent(topic: string, data: unknown) {
 	try {
 		const pub = await getZmqPublisher();
 		await pub.send([topic, JSON.stringify(data)]);
@@ -33,9 +34,33 @@ export async function publishEvent(topic: string, data: any) {
 	}
 }
 
-export async function subscribeToEvents(topic: string) {
+export async function subscribeToEvents(topic: string): Promise<EventSubscriber> {
 	const subscriber = new zmq.Subscriber();
 	subscriber.connect(ZMQ_PUB_ADDRESS);
 	subscriber.subscribe(topic);
-	return subscriber;
+	return {
+		[Symbol.asyncIterator]() {
+			const iterator = subscriber[Symbol.asyncIterator]();
+			return {
+				async next() {
+					const { value, done } = await iterator.next();
+					if (done || !value) {
+						return { value: undefined, done: true };
+					}
+					const [, msgData] = value as [Buffer, Buffer | string];
+					const dataString = typeof msgData === "string" ? msgData : msgData.toString();
+					let parsed: unknown = dataString;
+					try {
+						parsed = JSON.parse(dataString);
+					} catch {
+						parsed = dataString;
+					}
+					return { value: parsed, done: false };
+				},
+			};
+		},
+		close() {
+			subscriber.close();
+		},
+	};
 }

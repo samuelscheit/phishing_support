@@ -1,8 +1,8 @@
 import { sql } from "drizzle-orm";
 import { blob, customType, index, int, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { WhoISInfo } from "../website_info";
-import { parseMail } from "../mail_ai";
 import { ResponseInputItem, ResponseOutputItem } from "openai/resources/responses/responses.mjs";
+import { MailData } from "../mail_ai";
 
 export const submissionKind = ["email", "website"] as const;
 export type SubmissionKind = (typeof submissionKind)[number];
@@ -13,10 +13,10 @@ export type SubmissionStatus = (typeof submissionStatus)[number];
 export const analysisRunStatus = ["running", "completed", "failed"] as const;
 export type AnalysisRunStatus = (typeof analysisRunStatus)[number];
 
-export const reportStatus = ["draft", "sent", "failed"] as const;
+export const reportStatus = ["sent", "failed"] as const;
 export type ReportStatus = (typeof reportStatus)[number];
 
-export type EmailSubmissionData = ReturnType<typeof parseMail>;
+export type EmailSubmissionData = MailData;
 
 export type WebsiteSubmissionData = {
 	whois: WhoISInfo;
@@ -27,6 +27,9 @@ export type SubmissionData = { kind: "email"; email: EmailSubmissionData } | { k
 
 const bignum = customType<{ data: bigint; driverData: bigint }>({
 	dataType: () => "INTEGER",
+	fromDriver: (value) => BigInt(value),
+	// @ts-ignore
+	toDriver: (value) => value.toString(),
 });
 
 export const submissions = sqliteTable(
@@ -110,14 +113,18 @@ export const reports = sqliteTable(
 		to: text("to").notNull(),
 		subject: text("subject"),
 		body: text("body").notNull(),
-		status: text("status", { enum: reportStatus }).notNull().default("draft"),
+		status: text("status", { enum: reportStatus }).notNull().default("sent"),
 		sentAt: int("sent_at"),
 		providerMessageId: text("provider_message_id"),
 		// refereence to artifacts table for attachments
 		attachmentsArtifactIds: text("attachments_artifact_ids", { mode: "json" }).$type<string[]>(),
 		data: text("data", { mode: "json" }),
-		createdAt: int("created_at", { mode: "timestamp" }).notNull(),
-		updatedAt: int("updated_at", { mode: "timestamp" }).notNull(),
+		createdAt: int("created_at", { mode: "timestamp" })
+			.notNull()
+			.default(sql`(unixepoch())`),
+		updatedAt: int("updated_at", { mode: "timestamp" })
+			.notNull()
+			.default(sql`(unixepoch())`),
 	},
 	(table) => [
 		index("reports_submission_created_idx").on(table.submissionId, table.createdAt),

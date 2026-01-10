@@ -16,29 +16,11 @@ export async function POST(req: NextRequest) {
 		const buffer = Buffer.from(bytes);
 		const emlContent = buffer.toString("utf-8");
 
-		const mailData = parseMail(emlContent);
-
-		// Create submission
-		const submissionId = await SubmissionsEntity.create({
-			kind: "email",
-			data: { kind: "email", email: mailData },
-			dedupeKey: `${mailData.from}`,
-		});
-
-		// Save EML artifact
-		await ArtifactsEntity.saveBuffer({
-			submissionId,
-			name: "mail.eml",
-			kind: "eml",
-			mimeType: "message/rfc822",
-			buffer: buffer,
-		});
-
 		const stream_id = generateId();
 
-		analyzeMail(emlContent, submissionId, stream_id).catch(console.error);
+		await analyzeMail(emlContent, stream_id).catch(console.error);
 
-		return NextResponse.json({ submissionId: submissionId });
+		return NextResponse.json({ stream_id });
 	} catch (err) {
 		console.error("Submission error:", err);
 		return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

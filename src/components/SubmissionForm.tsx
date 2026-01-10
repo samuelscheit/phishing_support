@@ -27,8 +27,8 @@ export function SubmissionForm() {
 				headers: { "Content-Type": "application/json" },
 			});
 			const data = await res.json();
-			if (data.submissionId) {
-				router.push(`/submissions/${data.submissionId}`);
+			if (data.stream_id) {
+				router.push(`/submissions/${data.stream_id}`);
 			}
 		} catch (err) {
 			console.error(err);
@@ -51,8 +51,8 @@ export function SubmissionForm() {
 				body: formData,
 			});
 			const data = await res.json();
-			if (data.submissionId) {
-				router.push(`/submissions/${data.submissionId}`);
+			if (data.stream_id) {
+				router.push(`/submissions/${data.stream_id}`);
 			}
 		} catch (err) {
 			console.error(err);

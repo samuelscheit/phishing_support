@@ -1,57 +1,72 @@
-import { model } from "./utils";
-import { ReportsEntity, SubmissionsEntity } from "./db/entities";
+import { ArtifactsEntity, SubmissionsEntity } from "./db/entities";
 import { runStreamedAnalysisRun } from "./analysis_run";
-import type { ResponseCreateParamsStreaming } from "openai/resources/responses/responses.mjs";
-import { publishEvent } from "./zmq";
+import { publishEvent } from "./event/event_transport";
 import { simpleParser } from "mailparser";
 import { analyzeHeaders, getAddressesText } from "./mail";
 import { getInfo } from "./website_info";
 import * as toon from "@toon-format/toon";
+import { markSubmissionInvalid, reportEmailPhishing } from "./reporting";
 
-async function emitStep(streamId: bigint | undefined, step: string, progress: number) {
+async function emitStep(streamId: bigint | string | undefined, step: string, progress: number) {
 	if (!streamId) return;
 	await publishEvent(`run:${streamId}`, { type: "analysis.step", step, progress });
 }
 
-export function parseMail(eml: string) {
+export async function parseMail(eml: string) {
+	const parsedMail = await simpleParser(eml, { skipTextToHtml: true });
+
+	const headers = analyzeHeaders(parsedMail.headerLines.map((x) => x.line).join("\n"));
+
+	const whois = await getInfo(headers.routing.originatingIp!);
+
 	return {
-		subject: eml.match(/^Subject: (.*)$/m)?.[1] || "No Subject",
-		from: eml.match(/^From: (.*)$/m)?.[1] || "Unknown Sender",
-		body: eml,
+		eml,
+		from: getAddressesText(parsedMail.from),
+		to: getAddressesText(parsedMail.to),
+		cc: getAddressesText(parsedMail.cc),
+		bcc: getAddressesText(parsedMail.bcc),
+		subject: parsedMail.subject || "",
+		text: (parsedMail.text || "")
+			.replaceAll(/(\r?\n)+/g, "\n")
+			.replaceAll(/\n/g, " ")
+			.trim(),
+		headers: {
+			...headers,
+			routing: {
+				...headers.routing,
+			},
+		},
+		whois,
 	};
 }
 
-export async function analyzeMail(eml: string, submissionId: bigint, stream_id?: bigint) {
+export type MailData = Awaited<ReturnType<typeof parseMail>>;
+
+export async function analyzeMail(emlContent: string, stream_id: bigint) {
 	try {
-		const parsedMail = await simpleParser(eml, { skipTextToHtml: true });
+		const mail = await parseMail(emlContent);
 
-		const headers = analyzeHeaders(parsedMail.headerLines.map((x) => x.line).join("\n"));
+		// Create submission
+		const submissionId = await SubmissionsEntity.create({
+			kind: "email",
+			data: { kind: "email", email: mail },
+			dedupeKey: `${mail.from}`,
+			id: stream_id,
+		});
 
-		const whois = await getInfo(headers.routing.originatingIp!);
-
-		const mail = {
-			from: getAddressesText(parsedMail.from),
-			to: getAddressesText(parsedMail.to),
-			cc: getAddressesText(parsedMail.cc),
-			bcc: getAddressesText(parsedMail.bcc),
-			subject: parsedMail.subject || "",
-			text: (parsedMail.text || "")
-				.replaceAll(/(\r?\n)+/g, "\n")
-				.replaceAll(/\n/g, " ")
-				.trim(),
-			headers: {
-				...headers,
-				routing: {
-					...headers.routing,
-					whois: whois,
-				},
-			},
-		};
+		// Save EML artifact
+		await ArtifactsEntity.saveBuffer({
+			submissionId,
+			name: "mail.eml",
+			kind: "eml",
+			mimeType: "message/rfc822",
+			buffer: Buffer.from(emlContent, "utf-8"),
+		});
 
 		await emitStep(stream_id, "start", 0);
 		await SubmissionsEntity.update(submissionId, { status: "running" });
 
-		await emitStep(stream_id, "analysis_run", 35);
+		await emitStep(stream_id, "analysis_run", 30);
 
 		const { result: analysis } = await runStreamedAnalysisRun({
 			submissionId,
@@ -82,11 +97,7 @@ Your analysis must include:
 					{
 						role: "user",
 						content: `analyze this email:
-${toon.encode(mail)}`,
-					},
-					{
-						role: "user",
-						content: eml,
+${toon.encode({ ...mail, eml: undefined })}`,
 					},
 				],
 				reasoning: {
@@ -138,74 +149,20 @@ ${toon.encode(mail)}`,
 
 		if (phishing) {
 			await emitStep(stream_id, "reporting", 90);
-			await ReportsEntity.create({
+			await reportEmailPhishing({
 				submissionId,
-				type: "phishing_email",
-				data: {},
+				streamId: stream_id,
+				mail,
+				analysisText: analysis.output_text,
 			});
-			await SubmissionsEntity.update(submissionId, { status: "reported" });
 		} else {
-			await SubmissionsEntity.update(submissionId, { status: "invalid" });
+			await markSubmissionInvalid(submissionId);
 		}
 
 		await emitStep(stream_id, "completed", 100);
 	} catch (error) {
 		console.error("Email analysis failed:", error);
-		await SubmissionsEntity.update(submissionId, { status: "failed", info: String(error) });
+		await SubmissionsEntity.update(stream_id, { status: "failed", info: String(error) });
 		await emitStep(stream_id, "failed", 100);
 	}
 }
-
-// const reportMailStream = await model.responses.create({
-// 	model: "gpt-5.2",
-// 	input: [
-// 		{
-// 			role: "system",
-// 			content: `You are an expert email phishing analyst. Your task is to draft a concise report to the abuse contact of the sending IP's owner, reporting a phishing email that originated from their infrastructure.
-
-// The report must include:
-// 1) A brief summary of the phishing email (brand impersonated, main action pushed).
-// 2) The sending IP and domain used.
-// 3) A request for investigation and mitigation (e.g., blocking the sender, taking down related infrastructure).
-
-// The original phishing email with full headers will automatically be attached as an attachment.
-// You act on behalf of "the team of https://phishing.support".
-// The tone should be professional and factual.`,
-// 		},
-// 		{
-// 			role: "user",
-// 			content: `Draft the report based on this analysis:
-
-// ${toon.encode(mail)}
-// ${mail_analysis.output_text}
-
-// Sending IP: ${headers.routing.originatingIp}
-// Sending Domain: ${headers.routing.originatingServer}
-
-// Abuse Contact:
-// ${toon.encode(abuseContact)}
-// `,
-// 		},
-// 	],
-// 	max_output_tokens,
-// 	tool_choice: "required",
-// 	text: {
-// 		format: {
-// 			type: "json_schema",
-// 			name: "send_mail",
-// 			schema: {
-// 				type: "object",
-// 				properties: {
-// 					to: { type: "string", description: "Recipient email address" },
-// 					subject: { type: "string", description: "Email subject" },
-// 					body: { type: "string", description: "Email body content" },
-// 				},
-// 				required: ["to", "subject", "body"],
-// 				additionalProperties: false,
-// 			},
-// 			strict: true,
-// 		},
-// 		verbosity: "low",
-// 	},
-// 	stream: true,
-// });

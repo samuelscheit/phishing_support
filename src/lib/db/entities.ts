@@ -3,13 +3,18 @@ import crypto from "node:crypto";
 import { eq } from "drizzle-orm";
 
 import { db } from "./index";
-import { analysisRuns, artifacts, reports, submissions, type SubmissionData, type SubmissionKind, type SubmissionStatus } from "./schema";
+import {
+	analysisRuns,
+	artifacts,
+	reports,
+	ReportStatus,
+	submissions,
+	type SubmissionData,
+	type SubmissionKind,
+	type SubmissionStatus,
+} from "./schema";
 import { ResponseInputItem, ResponseOutputItem } from "openai/resources/responses/responses.mjs";
 import { generateId } from "./ids";
-
-function nowUnixSeconds(): number {
-	return Math.floor(Date.now() / 1000);
-}
 
 function nowDate(): Date {
 	return new Date();
@@ -23,8 +28,11 @@ export class SubmissionsEntity {
 		dedupeKey: string;
 		status?: SubmissionStatus;
 		info?: string;
+		id?: bigint;
 	}) {
-		const id = generateId();
+		const id = params.id ?? generateId();
+		await db.delete(submissions).where(eq(submissions.dedupeKey, params.dedupeKey));
+
 		const [row] = await db
 			.insert(submissions)
 			.values([
@@ -67,20 +75,17 @@ export class SubmissionsEntity {
 export class AnalysisRunsEntity {
 	static async create(submissionId: bigint, input?: Array<ResponseInputItem>) {
 		const id = generateId();
-		const [row] = await db
-			.insert(analysisRuns)
-			.values([
-				{
-					id,
-					submissionId,
-					status: "running" as const,
-					input: input,
-					createdAt: nowDate(),
-				},
-			])
-			.returning({ id: analysisRuns.id });
+		await db.insert(analysisRuns).values([
+			{
+				id,
+				submissionId,
+				status: "running" as const,
+				input: input,
+				createdAt: nowDate(),
+			},
+		]);
 
-		return row!.id;
+		return id;
 	}
 
 	static async update(id: bigint, values: Partial<typeof analysisRuns.$inferInsert>) {
@@ -88,17 +93,32 @@ export class AnalysisRunsEntity {
 	}
 
 	static async listForSubmission(submissionId: bigint) {
-		return await db.select().from(analysisRuns).where(eq(analysisRuns.submissionId, submissionId));
+		const result = await db.select().from(analysisRuns).where(eq(analysisRuns.submissionId, submissionId));
+
+		result.forEach((run) => {
+			if (!run.input) return;
+
+			run.input.forEach((item) => {
+				if ("content" in item && Array.isArray(item.content)) {
+					item.content = item.content.filter((x) => x.type !== "input_image") as any;
+				}
+			});
+		});
+
+		return result;
 	}
 
 	static async complete(runId: bigint, output?: Array<ResponseOutputItem>) {
-		await db
+		const result = await db
 			.update(analysisRuns)
 			.set({
 				status: "completed",
 				output: output,
 			})
-			.where(eq(analysisRuns.id, runId));
+			.where(eq(analysisRuns.id, runId))
+			.returning();
+
+		console.log("Analysis run completed:", result);
 	}
 
 	static async fail(runId: bigint) {
@@ -133,7 +153,17 @@ export class ArtifactsEntity {
 	}
 
 	static async listForSubmission(submissionId: bigint) {
-		return await db.select().from(artifacts).where(eq(artifacts.submissionId, submissionId));
+		return await db
+			.select({
+				id: artifacts.id,
+				name: artifacts.name,
+				kind: artifacts.kind,
+				mimeType: artifacts.mimeType,
+				size: artifacts.size,
+				createdAt: artifacts.createdAt,
+			})
+			.from(artifacts)
+			.where(eq(artifacts.submissionId, submissionId));
 	}
 
 	static async get(id: bigint) {
@@ -189,39 +219,20 @@ export class ArtifactsEntity {
 }
 
 export class ReportsEntity {
-	static async create(params: { submissionId: bigint; analysisRunId?: bigint; type: string; data: any }) {
-		const id = generateId();
-		const [row] = await db
-			.insert(reports)
-			.values([
-				{
-					id,
-					submissionId: params.submissionId,
-					analysisRunId: params.analysisRunId,
-					channel: "ui",
-					to: "internal",
-					body: JSON.stringify(params.data),
-					status: "sent",
-					data: params.data,
-					createdAt: nowDate(),
-					updatedAt: nowDate(),
-				},
-			])
-			.returning({ id: reports.id });
-		return row!.id;
-	}
-
 	static async listForSubmission(submissionId: bigint) {
 		return await db.select().from(reports).where(eq(reports.submissionId, submissionId));
 	}
 
-	static async createDraft(params: {
+	static async create(params: {
 		submissionId: bigint;
 		analysisRunId?: bigint;
 		to: string;
 		subject?: string;
 		body: string;
-		attachmentsArtifactIds?: string[];
+		attachmentsArtifactIds?: Array<bigint | string>;
+		status?: ReportStatus;
+		providerMessageId?: string;
+		data?: any;
 	}) {
 		const id = generateId();
 		const [row] = await db
@@ -235,10 +246,12 @@ export class ReportsEntity {
 					to: params.to,
 					subject: params.subject,
 					body: params.body,
-					status: "draft",
-					attachmentsArtifactIds: params.attachmentsArtifactIds,
+					status: params.status ?? "sent",
+					attachmentsArtifactIds: params.attachmentsArtifactIds?.map((value) => value.toString()),
 					createdAt: nowDate(),
 					updatedAt: nowDate(),
+					providerMessageId: params.providerMessageId,
+					data: params.data,
 				},
 			])
 			.returning({ id: reports.id });

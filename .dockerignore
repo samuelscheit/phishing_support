@@ -1,0 +1,21 @@
+# dependencies
+node_modules
+
+# next
+.next
+out
+
+# git
+.git
+
+# env files (do not bake secrets into images)
+.env
+.env.*
+
+# local data/artifacts
+data
+phishing_pot
+
+# misc
+.DS_Store
+*.log

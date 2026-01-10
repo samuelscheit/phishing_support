@@ -13,13 +13,6 @@ import type { ResponseStreamEvent } from "openai/resources/responses/responses.m
 import nodemailer from "nodemailer";
 import { fileURLToPath } from "url";
 
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-export function cn(...inputs: ClassValue[]) {
-	return twMerge(clsx(inputs));
-}
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -32,6 +25,11 @@ let browserPromise: Promise<Browser> | null = null;
 
 export async function getBrowser() {
 	// TODO: harden puppeteer/browser for security
+
+	const isDocker = process.env.DOCKER === "true" || process.env.CONTAINER === "true";
+	const headless = process.env.PUPPETEER_HEADLESS !== "false";
+	const chromePathFromEnv = process.env.CHROME_PATH;
+	const defaultMacChromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 	const userDataDir = path.join(tmpdir(), "puppeteer-user-data");
 	fs.mkdirSync(userDataDir, { recursive: true });
@@ -53,21 +51,26 @@ export async function getBrowser() {
 		// 		"--enable-webgl",
 		// 	],
 		// });
+		const args: string[] = [`--screen-size=1920,1080`, "--disable-extensions", "--disable-file-system"];
+
+		// Chromium inside containers commonly requires disabling sandbox.
+		if (isDocker || process.env.PUPPETEER_NO_SANDBOX === "true") {
+			args.push("--no-sandbox", "--disable-setuid-sandbox");
+		}
+
 		const result = await connect({
-			headless: false,
-			// userDataDir,
-			args: [
-				`--screen-size=1920,1080`,
-				"--disable-extensions",
-				"--disable-file-system",
-				//
-			],
-			connectOption: {},
+			headless,
+			args,
+			connectOption: {
+				downloadBehavior: {
+					policy: "deny",
+				},
+				acceptInsecureCerts: true,
+			},
 			turnstile: true,
 			customConfig: {
 				userDataDir: userDataDir,
-
-				// chromePath: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`,
+				chromePath: chromePathFromEnv || (!isDocker ? defaultMacChromePath : undefined),
 			},
 		});
 

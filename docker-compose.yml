@@ -1,0 +1,29 @@
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        ports:
+            - "3000:3000"
+        environment:
+            # SQLite database file inside the container
+            DB_FILE_NAME: /data/phishing_reporter.sqlite
+
+            # Puppeteer / Chromium
+            CHROME_PATH: /usr/bin/chromium
+            PUPPETEER_HEADLESS: "true"
+            DOCKER: "true"
+
+            # Set these via your deployment environment / secrets manager
+            # OPENAI_API_KEY: ""
+            # OPENAI_API_BASE_URL: "https://api.openai.com/v1"
+            # SMTP_HOST: ""
+            # SMTP_PORT: "587"
+            # SMTP_USER: ""
+            # SMTP_PASS: ""
+        volumes:
+            - phishing_reporter_data:/data
+        restart: unless-stopped
+
+volumes:
+    phishing_reporter_data:

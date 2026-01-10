@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { subscribeToEvents } from "@/lib/zmq";
+import { subscribeToEvents } from "@/lib/event/event_transport";
 
 export const dynamic = "force-dynamic";
 
@@ -14,15 +14,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 			controller.enqueue(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
 
 			try {
-				for await (const [msgTopic, msgData] of sub) {
-					const data = msgData.toString();
-					controller.enqueue(`data: ${data}\n\n`);
+				for await (const msgData of sub) {
+					const payload = typeof msgData === "string" ? msgData : JSON.stringify(msgData);
+					controller.enqueue(`data: ${payload}\n\n`);
 
-					// If the message contains "status": "completed" or something similar, we could close
-					// But usually we just let the client close or keep it open for a bit
-					const parsed = JSON.parse(data);
-					if (parsed.status === "completed" || parsed.status === "error") {
-						break;
+					if (typeof msgData === "object" && msgData && "status" in msgData) {
+						const status = (msgData as { status?: string }).status;
+						if (status === "completed" || status === "error") {
+							break;
+						}
 					}
 				}
 			} catch (err) {

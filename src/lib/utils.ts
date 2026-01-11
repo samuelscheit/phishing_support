@@ -58,6 +58,7 @@ export async function getBrowser() {
 		"--disable-blink-features=AutomationControlled",
 		"--disable-gpu",
 		"--enable-webgl",
+		`--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36`,
 	];
 
 	// Chromium inside containers commonly requires disabling sandbox.
@@ -287,6 +288,7 @@ export async function getBrowserPage(p?: Page) {
 
 	page.goto = async (url: string, options?: GoToOptions) => {
 		const response = await originalGoto(url, {
+			...options,
 			waitUntil: "domcontentloaded",
 		});
 

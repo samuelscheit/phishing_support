@@ -2,6 +2,9 @@ import { dirname, join } from "node:path";
 import fs from "node:fs";
 import { getBrowser, getBrowserPage } from "./utils";
 
+process.env["DEBUG"] = "puppeteer:*";
+process.env["DEBUG_MAX_STRING_LENGTH"] = "null";
+
 const browser = await getBrowser();
 
 const context = await browser.createBrowserContext({

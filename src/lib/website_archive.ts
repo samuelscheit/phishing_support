@@ -59,7 +59,7 @@ async function archiveWebsiteInternal(link: string, country_code?: string): Prom
 
 			await page.goto(link, {
 				waitUntil: "load",
-				timeout: 1000 * 30,
+				timeout: 1000 * 120,
 			});
 
 			resolve();

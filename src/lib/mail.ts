@@ -56,7 +56,7 @@ export function getMailLinks(result: Awaited<ReturnType<typeof simpleParser>>) {
 }
 
 export async function getMailImage(result: Awaited<ReturnType<typeof simpleParser>>) {
-	const page = await getBrowserPage();
+	const {page,context} = await getBrowserPage();
 
 	try {
 		if (!result.html) throw new Error("No HTML content found");
@@ -79,7 +79,7 @@ export async function getMailImage(result: Awaited<ReturnType<typeof simpleParse
 		console.error("Error processing HTML content:", error);
 	}
 
-	await page.close();
+	await context.close();
 }
 
 function normalizeHeaderValue(value: unknown): string[] {

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 		const stream_id = generateId();
 
 		const user_country_code = await getUserCC(req);
-		analyzeWebsite(url, stream_id, user_country_code).catch(() => {});
+		analyzeWebsite(url, stream_id, user_country_code).catch(console.error);
 
 		await sleep(2000);
 

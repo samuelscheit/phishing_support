@@ -1,4 +1,5 @@
 import { getBrowser, getBrowserPage, pathSafeFilename } from "./utils";
+import path from "node:path";
 
 export type ArchivedWebsiteResponse = {
 	name: string;
@@ -46,20 +47,31 @@ async function archiveWebsiteInternal(link: string, country_code?: string): Prom
 	await page.setRequestInterception(true);
 
 	await new Promise<void>(async (resolve, reject) => {
-		page.on("response", (response) => {
-			if (!response.request().isNavigationRequest()) return;
-			const uri = new URL(response.url());
-			if (hostname !== uri.hostname) {
-				reject(new Error("Redirected to different hostname"));
-			}
-		});
+		try {
+			page.on("response", (response) => {
+				if (!response.request().isNavigationRequest()) return;
+				const uri = new URL(response.url());
+				if (hostname !== uri.hostname) {
+					reject(new Error("Redirected to different hostname"));
+				}
+			});
 
-		await page.goto(link, {
-			waitUntil: "networkidle0",
-			timeout: 10000,
-		});
+			await page.goto(link, {
+				waitUntil: "networkidle0",
+				timeout: 10000,
+			});
 
-		resolve();
+			resolve();
+		} catch (err) {
+			await page.screenshot({
+				path: path.join(__dirname, "..", "..", "data", `error_${pathSafeFilename(hostname)}.png`),
+				fullPage: true,
+				captureBeyondViewport: true,
+				type: "png",
+			});
+
+			reject(err);
+		}
 	});
 
 	const screenshotPng = await page.screenshot({

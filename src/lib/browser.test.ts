@@ -17,7 +17,9 @@ await p.authenticate({
 
 const page = await getBrowserPage(p);
 
-await page.goto("https://ipapi.co/json/");
+await page.goto("https://saewar.com/De56Mgw1A");
+// await page.goto("https://ipapi.co/json/");
+// https://saewar.com/De56Mgw1A
 
 // await page.goto("https://bot-detector.rebrowser.net/");
 

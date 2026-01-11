@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageResponse } from "@/components/ai-elements/message";
+import { cn } from "@/web_lib/util";
 
 type OutputItem = {
 	type?: string;
@@ -29,7 +30,7 @@ function extractOutputText(output?: Array<OutputItem>): string | null {
 	return text ? text : null;
 }
 
-export function AnalysisLogs({ streamId, output }: { streamId: string; output?: Array<OutputItem> }) {
+export function AnalysisLogs({ streamId, output, className }: { streamId: string; output?: Array<OutputItem>; className?: string }) {
 	const [logs, setLogs] = useState<string[]>([]);
 	const streamingIndexRef = useRef<number | null>(null);
 	const streamingTextRef = useRef("");
@@ -142,7 +143,7 @@ export function AnalysisLogs({ streamId, output }: { streamId: string; output?: 
 	}, [markdown]);
 
 	return (
-		<ScrollArea className="h-100 w-full p-4">
+		<ScrollArea className={cn("w-full p-4", className ?? "h-96")}>
 			<div className="space-y-3">
 				{markdown ? (
 					<MessageResponse isAnimating={!outputText}>{markdown}</MessageResponse>

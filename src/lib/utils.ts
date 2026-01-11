@@ -24,6 +24,7 @@ import { fileURLToPath } from "url";
 import { SocksProxyAgent } from "socks-proxy-agent";
 import { fetch } from "netbun";
 import axios from "axios";
+import { HttpProxyAgent } from "http-proxy-agent";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -461,10 +462,10 @@ export const model = new OpenAI({
 	apiKey: process.env.OPENAI_API_KEY ?? "",
 	baseURL: process.env.OPENAI_API_BASE_URL || "https://api.openai.com/v1",
 	// fetch,
-	// fetchOptions: {
-	// 	agent: new SocksProxyAgent("socks5://109.199.115.133:9150"),
-	// 	proxy: `socks5://109.199.115.133:9150`,
-	// },
+	fetchOptions: {
+		agent: new HttpProxyAgent("http://any:any@109.199.115.133:3128"),
+		proxy: `http://any:any@109.199.115.133:3128`,
+	},
 });
 
 export async function getUserCC(req: Request) {

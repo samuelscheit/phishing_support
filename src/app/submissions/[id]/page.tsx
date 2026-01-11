@@ -32,7 +32,10 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 	const isFailed = statusKey === "failed";
 	const isReported = statusKey === "reported";
 
-	const defaultTab = ["new", "queued", "running"].includes(statusKey) ? "runs" : "reports";
+	const isRunning = ["new", "queued", "running"].includes(statusKey);
+	const runsToShow = submission ? (isRunning ? submission.analysisRuns : submission.analysisRuns.slice(0, 1)) : [];
+
+	const defaultTab = isRunning ? "runs" : "reports";
 
 	const safeHostname = (rawUrl?: string) => {
 		if (!rawUrl) return null;
@@ -250,8 +253,8 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 				<TabsList>
 					{submission.kind === "website" ? <TabsTrigger value="website">Website</TabsTrigger> : null}
 					<TabsTrigger value="reports">Reports ({submission.reports.length})</TabsTrigger>
-					<TabsTrigger value="runs">Analysis ({submission.analysisRuns.length})</TabsTrigger>
 					<TabsTrigger value="artifacts">Files ({artifacts.length})</TabsTrigger>
+					<TabsTrigger value="runs">Analysis</TabsTrigger>
 					{submission.kind === "website" ? <TabsTrigger value="whois">WhoIS</TabsTrigger> : null}
 				</TabsList>
 				{submission.kind === "website" && websiteMhtml ? (
@@ -316,19 +319,23 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 				<TabsContent value="runs" className="space-y-4 mt-4">
 					<AnalysisProgress streamId={submission.id} status={submission.status} />
 
-					{submission.analysisRuns.map((run: any) => (
-						<Card key={run.id} className="overflow-hidden">
-							<CardHeader className="bg-muted/50 py-3">
-								<div className="flex justify-between items-center">
-									<CardTitle className="text-sm font-mono uppercase">Run #{run.id}</CardTitle>
-									<Badge variant={run.status === "completed" ? "default" : "outline"}>{run.status}</Badge>
-								</div>
-							</CardHeader>
-							<CardContent className="p-0">
-								<AnalysisLogs streamId={run.id} output={run.output} />
-							</CardContent>
-						</Card>
-					))}
+					{runsToShow.length > 0 ? (
+						runsToShow.map((run: any) => (
+							<Card key={run.id} className={isRunning ? "overflow-hidden" : "overflow-hidden flex flex-col h-[90vh]"}>
+								<CardHeader className="bg-muted/50 py-3 shrink-0">
+									<div className="flex justify-between items-center">
+										<CardTitle className="text-sm font-mono uppercase">Run #{run.id}</CardTitle>
+										<Badge variant={run.status === "completed" ? "default" : "outline"}>{run.status}</Badge>
+									</div>
+								</CardHeader>
+								<CardContent className={isRunning ? "p-0" : "p-0 flex-1 min-h-0"}>
+									<AnalysisLogs streamId={run.id} output={run.output} className={isRunning ? undefined : "h-full"} />
+								</CardContent>
+							</Card>
+						))
+					) : (
+						<div className="text-center py-10 text-muted-foreground">No analysis runs yet.</div>
+					)}
 				</TabsContent>
 				<TabsContent value="artifacts" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
 					{artifacts.length > 0 ? (

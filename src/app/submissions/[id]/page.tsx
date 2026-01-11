@@ -32,6 +32,8 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 	const isFailed = statusKey === "failed";
 	const isReported = statusKey === "reported";
 
+	const defaultTab = ["new", "queued", "running"].includes(statusKey) ? "runs" : "reports";
+
 	const safeHostname = (rawUrl?: string) => {
 		if (!rawUrl) return null;
 		try {
@@ -244,7 +246,7 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 				</div>
 			</div>
 
-			<Tabs defaultValue="reports" className="w-full">
+			<Tabs defaultValue={defaultTab} className="w-full">
 				<TabsList>
 					{submission.kind === "website" ? <TabsTrigger value="website">Website</TabsTrigger> : null}
 					<TabsTrigger value="reports">Reports ({submission.reports.length})</TabsTrigger>

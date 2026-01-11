@@ -145,7 +145,7 @@ export function UrlParts({ url, className }: UrlPartsProps) {
 	const pathTooltip: TooltipDetails = {
 		title: "Path",
 		description:
-			"The full path and query string. Attackers often use paths and parameters to mimic real login pages or to carry tracking/token data.",
+			"Everything after the main domain (the /... part).\nIrrelevant for identifying the site owner.\n\nAttackers may use long or confusing paths to hide the true nature of the site.",
 		example: pathWithQuery,
 	};
 

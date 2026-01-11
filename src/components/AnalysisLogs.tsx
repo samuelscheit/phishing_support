@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { MessageResponse } from "@/components/ai-elements/message";
 
 type OutputItem = {
 	type?: string;
@@ -30,10 +31,14 @@ function extractOutputText(output?: Array<OutputItem>): string | null {
 
 export function AnalysisLogs({ streamId, output }: { streamId: string; output?: Array<OutputItem> }) {
 	const [logs, setLogs] = useState<string[]>([]);
-	const scrollRef = useRef<HTMLDivElement>(null);
 	const streamingIndexRef = useRef<number | null>(null);
 	const streamingTextRef = useRef("");
+	const bottomRef = useRef<HTMLDivElement>(null);
 	const outputText = useMemo(() => extractOutputText(output), [output]);
+	const markdown = useMemo(() => {
+		if (outputText) return outputText;
+		return logs.join("\n\n");
+	}, [logs, outputText]);
 
 	const appendStreamingText = (delta: string) => {
 		streamingTextRef.current += delta;
@@ -133,26 +138,19 @@ export function AnalysisLogs({ streamId, output }: { streamId: string; output?: 
 	}, [streamId, outputText]);
 
 	useEffect(() => {
-		if (scrollRef.current) {
-			scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-		}
-	}, [logs]);
+		bottomRef.current?.scrollIntoView({ block: "end" });
+	}, [markdown]);
 
 	return (
-		<ScrollArea className="h-[400px] w-full rounded-md border bg-black p-4 font-mono text-sm text-green-500">
-			<div ref={scrollRef}>
-				{outputText ? (
-					<div className="whitespace-pre-wrap">{outputText}</div>
+		<ScrollArea className="h-100 w-full p-4">
+			<div className="space-y-3">
+				{markdown ? (
+					<MessageResponse isAnimating={!outputText}>{markdown}</MessageResponse>
 				) : (
-					<>
-						{logs.map((log, i) => (
-							<div key={i} className="whitespace-pre-wrap mb-1">
-								{log}
-							</div>
-						))}
-						<div className="animate-pulse inline-block w-2 h-4 bg-green-500 ml-1" />
-					</>
+					<div className="text-sm text-muted-foreground">Waiting for output…</div>
 				)}
+				{!outputText ? <div className="animate-pulse inline-block w-2 h-4 bg-muted-foreground/60" /> : null}
+				<div ref={bottomRef} />
 			</div>
 		</ScrollArea>
 	);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeWebsite } from "@/lib/website_ai";
 import { generateId } from "@/lib/db/ids";
-import { sleep } from "@/lib/utils";
+import { getUserCC, sleep } from "@/lib/utils";
 
 export const runtime = "nodejs";
 
@@ -15,7 +15,8 @@ export async function POST(req: NextRequest) {
 
 		const stream_id = generateId();
 
-		analyzeWebsite(url, stream_id).catch(() => {});
+		const user_country_code = await getUserCC(req);
+		analyzeWebsite(url, stream_id, user_country_code).catch(() => {});
 
 		await sleep(2000);
 

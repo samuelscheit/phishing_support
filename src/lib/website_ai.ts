@@ -11,7 +11,7 @@ export async function emitStep(streamId: bigint | string | undefined, step: stri
 	await publishEvent(`run:${streamId}`, { type: "analysis.step", step, progress });
 }
 
-export async function analyzeWebsite(url: string, stream_id?: bigint) {
+export async function analyzeWebsite(url: string, stream_id?: bigint, user_country_code?: string): Promise<bigint> {
 	await emitStep(stream_id, "start", 0);
 	const uri = new URL(url);
 
@@ -32,7 +32,7 @@ export async function analyzeWebsite(url: string, stream_id?: bigint) {
 
 	try {
 		await emitStep(stream_id, "archive_website", 25);
-		const archive = await archiveWebsite(url);
+		const archive = await archiveWebsite(url, user_country_code);
 		await emitStep(stream_id, "save_artifacts", 40);
 		await ArtifactsEntity.saveWebsiteArtifacts({ submissionId, archive });
 

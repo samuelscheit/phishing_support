@@ -23,6 +23,7 @@ import nodemailer from "nodemailer";
 import { fileURLToPath } from "url";
 import { SocksProxyAgent } from "socks-proxy-agent";
 import { fetch } from "netbun";
+import axios from "axios";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,6 +36,7 @@ config({
 let browserPromise: Promise<Browser> | null = null;
 
 export async function getBrowser() {
+	if (browserPromise) return browserPromise;
 	// TODO: harden puppeteer/browser for security
 
 	const isDocker = process.env.DOCKER === "true" || process.env.PUPPETEER_NO_SANDBOX === "true";
@@ -44,38 +46,36 @@ export async function getBrowser() {
 	fs.mkdirSync(userDataDir, { recursive: true });
 	console.log(`Created temporary user data directory at: ${userDataDir}`);
 
-	if (!browserPromise) {
-		const args: string[] = [
-			`--screen-size=1920,1080`,
-			"--disable-extensions",
-			"--disable-file-system",
-			"--disable-dev-shm-usage",
-			"--disable-blink-features=AutomationControlled",
-			"--disable-features=site-per-process",
-			"--disable-advertisements",
-			"--enable-javascript",
-			"--disable-blink-features=AutomationControlled",
-			"--disable-gpu",
-			"--enable-webgl",
-		];
+	const args: string[] = [
+		`--screen-size=1920,1080`,
+		"--disable-extensions",
+		"--disable-file-system",
+		"--disable-dev-shm-usage",
+		"--disable-blink-features=AutomationControlled",
+		"--disable-features=site-per-process",
+		"--disable-advertisements",
+		"--enable-javascript",
+		"--disable-blink-features=AutomationControlled",
+		"--disable-gpu",
+		"--enable-webgl",
+	];
 
-		// Chromium inside containers commonly requires disabling sandbox.
-		if (isDocker) {
-			args.push("--no-sandbox", "--disable-setuid-sandbox");
-		}
-
-		browserPromise = launch({
-			executablePath: chromePath,
-			headless: false,
-			userDataDir,
-			ignoreDefaultArgs: ["--enable-automation"],
-			args,
-			downloadBehavior: {
-				policy: "deny",
-			},
-			acceptInsecureCerts: true,
-		});
+	// Chromium inside containers commonly requires disabling sandbox.
+	if (isDocker) {
+		args.push("--no-sandbox", "--disable-setuid-sandbox");
 	}
+
+	browserPromise = launch({
+		executablePath: chromePath,
+		headless: false,
+		userDataDir,
+		ignoreDefaultArgs: ["--enable-automation"],
+		args,
+		downloadBehavior: {
+			policy: "deny",
+		},
+		acceptInsecureCerts: true,
+	});
 
 	return browserPromise;
 }
@@ -158,9 +158,9 @@ export class DeferredPromise<T> {
 const isCloudflareChallengeUrl = (url: string) =>
 	url.includes("challenges.cloudflare.com") || url.includes("/cdn-cgi/challenge-platform/") || url.includes("cf-challenge");
 
-export async function getBrowserPage() {
+export async function getBrowserPage(p?: Page) {
 	const browser = await getBrowser();
-	const page = await browser.newPage();
+	const page = p || (await browser.newPage());
 	let cloudflareWait = new DeferredPromise<void>();
 
 	const waitForCloudflare = async (frame: Frame, page: Page) => {
@@ -183,24 +183,27 @@ export async function getBrowserPage() {
 
 		const [root] = body?.shadowRoots || [];
 		if (!root) throw new Error("No shadow root found in body");
+		try {
+			const input = await waitForCDPElement({
+				cdp,
+				nodeId: root.nodeId,
+				selector: `input[type="checkbox"]`,
+				timeoutMs: 30000,
+			});
 
-		const input = await waitForCDPElement({
-			cdp,
-			nodeId: root.nodeId,
-			selector: `input[type="checkbox"]`,
-			timeoutMs: 30000,
-		});
+			const { node } = await cdp.send("DOM.describeNode", {
+				nodeId: input,
+				depth: -1,
+				pierce: true,
+			});
 
-		const { node } = await cdp.send("DOM.describeNode", {
-			nodeId: input,
-			depth: -1,
-			pierce: true,
-		});
+			// @ts-ignore
+			const handle = (await frame.mainRealm().adoptBackendNode(node.backendNodeId)) as ElementHandle<Element>;
 
-		// @ts-ignore
-		const handle = (await frame.mainRealm().adoptBackendNode(node.backendNodeId)) as ElementHandle<Element>;
-
-		await handle.click();
+			await handle.click();
+		} catch (error) {
+			console.warn(`[Cloudflare] no checkbox found:`, (error as Error)?.message);
+		}
 
 		await page.waitForNavigation({ timeout: 30000 }).catch((error) => {
 			console.warn(`Cloudflare wait timed out:`, error);
@@ -417,3 +420,13 @@ export const model = new OpenAI({
 		proxy: `socks5://109.199.115.133:9150`,
 	},
 });
+
+export async function getUserCC(req: Request) {
+	try {
+		const ip = req.headers.get("CF-Connecting-IP") || req.headers.get("x-forwarded-for");
+		if (!ip) throw new Error("No IP found");
+
+		const response = await axios(`https://api.country.is/${ip}`);
+		return response.data.country as string;
+	} catch (error) {}
+}

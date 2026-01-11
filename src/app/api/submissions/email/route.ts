@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SubmissionsEntity, ArtifactsEntity } from "@/lib/db/entities";
 import { analyzeMail, parseMail } from "@/lib/mail_ai";
-import { generateId } from "../../../../lib/db/ids";
+import { generateId } from "@/lib/db/ids";
 
 export async function POST(req: NextRequest) {
 	try {

@@ -1,4 +1,4 @@
-import { getBrowserPage, pathSafeFilename } from "./utils";
+import { getBrowser, getBrowserPage, pathSafeFilename } from "./utils";
 
 export type ArchivedWebsiteResponse = {
 	name: string;
@@ -22,14 +22,44 @@ export type WebsiteArchiveResult = {
 	text: Buffer;
 };
 
-export async function archiveWebsite(link: string): Promise<WebsiteArchiveResult> {
-	const page = await getBrowserPage();
+async function archiveWebsiteInternal(link: string, country_code?: string): Promise<WebsiteArchiveResult> {
+	const browser = await getBrowser();
+
+	const context = await browser.createBrowserContext({
+		proxyServer: country_code ? `http://109.199.115.133:3128` : undefined,
+	});
+
+	const p = await context.newPage();
+
+	if (country_code) {
+		await p.authenticate({
+			username: country_code.toLowerCase(),
+			password: "any",
+		});
+	}
+
+	const page = await getBrowserPage(p);
 
 	const url = new URL(link);
 	const hostname = url.hostname;
 
-	await page.goto(link, {
-		waitUntil: "networkidle0",
+	await page.setRequestInterception(true);
+
+	await new Promise<void>(async (resolve, reject) => {
+		page.on("response", (response) => {
+			if (!response.request().isNavigationRequest()) return;
+			const uri = new URL(response.url());
+			if (hostname !== uri.hostname) {
+				reject(new Error("Redirected to different hostname"));
+			}
+		});
+
+		await page.goto(link, {
+			waitUntil: "networkidle0",
+			timeout: 10000,
+		});
+
+		resolve();
 	});
 
 	const screenshotPng = await page.screenshot({
@@ -73,7 +103,7 @@ export async function archiveWebsite(link: string): Promise<WebsiteArchiveResult
 
 	innerText = (await page.title()) + "\n\n" + description + "\n\n" + innerText;
 
-	await page.close();
+	await context.close();
 
 	return {
 		url: link,
@@ -83,4 +113,12 @@ export async function archiveWebsite(link: string): Promise<WebsiteArchiveResult
 		html: Buffer.from(rawHtml, "utf-8"),
 		text: Buffer.from(innerText, "utf-8"),
 	};
+}
+
+export async function archiveWebsite(link: string, user_country_code?: string): Promise<WebsiteArchiveResult> {
+	try {
+		return await archiveWebsiteInternal(link, user_country_code);
+	} catch (err) {
+		return await archiveWebsiteInternal(link);
+	}
 }

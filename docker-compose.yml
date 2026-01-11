@@ -7,7 +7,7 @@ services:
             - "8014:3000"
         environment:
             # SQLite database file inside the container
-            DB_FILE_NAME: /data/phishing_reporter.sqlite
+            DB_FILE_NAME: /app/data/phishing_reporter.sqlite
 
             DOCKER: true
 
@@ -19,7 +19,7 @@ services:
             # SMTP_USER: ""
             # SMTP_PASS: ""
         volumes:
-            - phishing_reporter_data:/data
+            - phishing_reporter_data:/app/data
         restart: unless-stopped
 
 volumes:

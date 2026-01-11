@@ -28,42 +28,19 @@ RUN bun run build
 FROM oven/bun:1.3.5-debian AS runner
 WORKDIR /app
 
-# Runtime deps:
-# - Xvfb (+ xauth) to run a real (headful) browser in containers
-# - Google Chrome (preferred for less detection) when available; fallback to Chromium on non-amd64
-# - libzmq for zeromq
-RUN set -eux; \
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates wget gnupg
+
+RUN set -euxo pipefail; \
+  wget -qO- https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-linux-signing-keyring.gpg; \
+  echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux-signing-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list; \
   apt-get update; \
-  apt-get install -y --no-install-recommends \
-    ca-certificates \
-    wget \
-    gnupg \
-    xvfb \
-    xauth \
-    libzmq5 \
-    fonts-liberation \
-    libasound2 \
-    libnss3 \
-    libxss1 \
-    libgtk-3-0; \
-  arch="$(dpkg --print-architecture)"; \
-  if [ "$arch" = "amd64" ]; then \
-    wget -qO- https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor > /usr/share/keyrings/google-linux-signing-keyring.gpg; \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux-signing-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends google-chrome-stable; \
-  else \
-    apt-get install -y --no-install-recommends chromium; \
-  fi; \
+  apt-get install -y --no-install-recommends ca-certificates xvfb xauth fonts-liberation libasound2 libnss3 libxss1 libgtk-3-0 google-chrome-stable; \
   rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
-ENV PORT=3000
-
-# Default path for Chromium in Debian-based images
-ENV CHROME_PATH=/usr/bin/google-chrome
-ENV PUPPETEER_HEADLESS=false
 ENV DOCKER=true
+ENV CHROME_PATH=/usr/bin/google-chrome-stable
 
 # Start Xvfb explicitly and then run Next.
 RUN set -eux; \

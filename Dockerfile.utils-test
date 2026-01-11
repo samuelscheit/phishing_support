@@ -17,7 +17,6 @@ RUN bun install --frozen-lockfile
 ENV NODE_ENV=production
 ENV DOCKER=true
 ENV CHROME_PATH=/usr/bin/google-chrome-stable
-ENV PUPPETEER_HEADLESS=false
 
 COPY . .
 

@@ -69,7 +69,7 @@ export async function getBrowser() {
 	browserPromise = launch({
 		executablePath: chromePath,
 		headless: false,
-		userDataDir,
+		// userDataDir,
 		ignoreDefaultArgs: ["--enable-automation"],
 		args,
 		downloadBehavior: {
@@ -161,21 +161,34 @@ export class DeferredPromise<T> {
 const isCloudflareChallengeUrl = (url: string) =>
 	url.includes("challenges.cloudflare.com") || url.includes("/cdn-cgi/challenge-platform/") || url.includes("cf-challenge");
 
-export async function getBrowserPage(p?: Page) {
+export async function getBrowserPage(p?: Page, proxy_country_code?: string) {
 	const browser = await getBrowser();
-	const page = p || (await browser.newPage());
+
+	const context = await browser.createBrowserContext({
+		proxyServer: proxy_country_code ? `http://109.199.115.133:3128` : undefined,
+	});
+
+	const page = p || (await context.newPage());
+
+	if (proxy_country_code) {
+		await page.authenticate({
+			username: proxy_country_code.toLowerCase(),
+			password: "any",
+		});
+	}
+
 	let cloudflareWait = new DeferredPromise<void>();
 
-	await page.setRequestInterception(true);
+	// await page.setRequestInterception(true);
 
-	page.on("request", (request) => {
-		console.log("Requesting:", request.url());
-		request.continue();
-	});
+	// page.on("request", (request) => {
+	// 	console.log("Requesting:", request.url());
+	// 	request.continue();
+	// });
 
-	page.on("response", async (response) => {
-		console.log("Received response:", response.status(), response.url());
-	});
+	// page.on("response", async (response) => {
+	// 	console.log("Received response:", response.status(), response.url());
+	// });
 
 	// await page.setUserAgent(
 	// 	`Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36`,
@@ -187,6 +200,13 @@ export async function getBrowserPage(p?: Page) {
 	// 		platformVersion: "10_15_7",
 	// 	}
 	// );
+
+	page.on("console", (msg) => {
+		const type = msg.type();
+		const text = msg.text();
+
+		console.log(`[Browser Console] [${type}] ${text}`);
+	});
 
 	const waitForCloudflare = async (frame: Frame, page: Page) => {
 		const source = page.url();
@@ -319,7 +339,7 @@ export async function getBrowserPage(p?: Page) {
 		return await handleResponse(response, (options?.waitUntil as PuppeteerLifeCycleEvent) || "load", options?.timeout || 30000);
 	};
 
-	return page;
+	return { page, context };
 }
 
 export function pathSafeFilename(input: string, { fallback = "file", maxLen = 180 } = {}) {
@@ -440,11 +460,11 @@ export const max_output_tokens = 30000;
 export const model = new OpenAI({
 	apiKey: process.env.OPENAI_API_KEY ?? "",
 	baseURL: process.env.OPENAI_API_BASE_URL || "https://api.openai.com/v1",
-	fetch,
-	fetchOptions: {
-		agent: new SocksProxyAgent("socks5://109.199.115.133:9150"),
-		proxy: `socks5://109.199.115.133:9150`,
-	},
+	// fetch,
+	// fetchOptions: {
+	// 	agent: new SocksProxyAgent("socks5://109.199.115.133:9150"),
+	// 	proxy: `socks5://109.199.115.133:9150`,
+	// },
 });
 
 export async function getUserCC(req: Request) {

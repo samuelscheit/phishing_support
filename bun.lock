@@ -8,6 +8,7 @@
         "@ai-sdk/anthropic": "^3.0.9",
         "@ai-sdk/google": "^3.0.6",
         "@ai-sdk/openai": "^3.0.7",
+        "@antiadmin/anticaptchaofficial": "^1.0.55",
         "@bernierllc/smtp-analyzer": "^0.3.0",
         "@hookform/resolvers": "^5.2.2",
         "@langchain/openai": "^1.2.1",
@@ -122,6 +123,8 @@
     "@ai-sdk/provider-utils": ["@ai-sdk/provider-utils@4.0.4", "", { "dependencies": { "@ai-sdk/provider": "3.0.2", "@standard-schema/spec": "^1.1.0", "eventsource-parser": "^3.0.6" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-VxhX0B/dWGbpNHxrKCWUAJKXIXV015J4e7qYjdIU9lLWeptk0KMLGcqkB4wFxff5Njqur8dt8wRi1MN9lZtDqg=="],
 
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
+
+    "@antiadmin/anticaptchaofficial": ["@antiadmin/anticaptchaofficial@1.0.55", "", { "dependencies": { "axios": "^1.0.0" } }, "sha512-l84hDKmVo7sf7ACPCJFgmOmku0+wmTYyu4JZYWap+jcYQMtWXVdG1beK4rO/a4UuKHdOIQGC0PwVx0irNreHwg=="],
 
     "@aws-crypto/sha256-browser": ["@aws-crypto/sha256-browser@5.2.0", "", { "dependencies": { "@aws-crypto/sha256-js": "^5.2.0", "@aws-crypto/supports-web-crypto": "^5.2.0", "@aws-crypto/util": "^5.2.0", "@aws-sdk/types": "^3.222.0", "@aws-sdk/util-locate-window": "^3.0.0", "@smithy/util-utf8": "^2.0.0", "tslib": "^2.6.2" } }, "sha512-AXfN/lGotSQwu6HNcEsIASo7kWXZ5HYWvfOmSNKDsEqC4OashTp8alTmaz+F7TC2L083SFv5RdB+qU3Vs1kZqw=="],
 

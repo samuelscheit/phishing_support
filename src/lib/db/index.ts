@@ -8,7 +8,10 @@ import { Database } from "bun:sqlite";
 export const db = drizzle(
 	new Database(process.env.DB_FILE_NAME!, {
 		safeIntegers: true,
-	})
+	}),
+	{
+		logger: false,
+	}
 );
 
 let migrationsFolder = join(__dirname, "..", "..", "..", "drizzle");

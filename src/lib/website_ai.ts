@@ -4,11 +4,21 @@ import { SubmissionsEntity, ArtifactsEntity } from "./db/entities";
 import { getInfo } from "./website_info";
 import { runStreamedAnalysisRun } from "./analysis_run";
 import { publishEvent } from "./event/event_transport";
-import { markSubmissionInvalid, reportWebsitePhishing } from "./reporting";
+import { markSubmissionInvalid, reportToGoogleSafeBrowsing, reportWebsitePhishing } from "./reporting";
 
 export async function emitStep(streamId: bigint | string | undefined, step: string, progress: number) {
 	if (!streamId) return;
 	await publishEvent(`run:${streamId}`, { type: "analysis.step", step, progress });
+}
+
+function retry(fn: () => Promise<any>, retries: number = 3, delayMs: number = 2000): Promise<any> {
+	return fn().catch((err) => {
+		if (retries > 0) {
+			return new Promise((resolve) => setTimeout(resolve, delayMs)).then(() => retry(fn, retries - 1, delayMs));
+		} else {
+			return Promise.reject(err);
+		}
+	});
 }
 
 export async function analyzeWebsite(url: string, stream_id?: bigint, user_country_code?: string): Promise<bigint> {
@@ -32,8 +42,10 @@ export async function analyzeWebsite(url: string, stream_id?: bigint, user_count
 
 	try {
 		await emitStep(stream_id, "archive_website", 25);
-		const archive = await archiveWebsite(url, user_country_code);
+		const archive = await retry(() => archiveWebsite(url, user_country_code), 2, 3000);
 		await emitStep(stream_id, "save_artifacts", 40);
+
+		// await ArtifactsEntity.saveWebsiteArtifacts({ submissionId, archive });
 		await ArtifactsEntity.saveWebsiteArtifacts({ submissionId, archive });
 
 		await emitStep(stream_id, "analysis_run", 55);
@@ -129,6 +141,14 @@ Use web search if necessary to gather more information about the content/brand. 
 					screenshotPng: archive.screenshotPng,
 					mhtml: archive.mhtml,
 				},
+			});
+
+			await emitStep(stream_id, "reporting to Google Safe Browsing", 90);
+
+			await reportToGoogleSafeBrowsing({
+				url,
+				submissionId,
+				analysisText: analysis.output_text,
 			});
 		} else {
 			await markSubmissionInvalid(submissionId);

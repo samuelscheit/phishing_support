@@ -18,7 +18,7 @@ await p.authenticate({
 	password: "any",
 });
 
-const page = await getBrowserPage(p);
+const { page } = await getBrowserPage(p);
 
 await page.goto("https://saewar.com/De56Mgw1A", {
 	waitUntil: "load",

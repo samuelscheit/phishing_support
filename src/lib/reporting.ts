@@ -6,6 +6,8 @@ import { max_output_tokens, mailer, getBrowserPage, sleep } from "./utils";
 import type { WhoISInfo } from "./website_info";
 import { MailData } from "./mail_ai";
 import { GoogleAuth } from "google-auth-library";
+// @ts-ignore
+import anticaptcha from "@antiadmin/anticaptchaofficial";
 
 type ReportDraft = {
 	to: string;
@@ -199,8 +201,6 @@ export async function reportToGoogleSafeBrowsing(params: {
 }) {
 	if (!params.tries) params.tries = 0;
 
-	const page = await getBrowserPage();
-
 	if (!params.explanation) {
 		const system = `You are an expert phishing analyst. Write a concise explanation for reporting a phishing website to Google Safe Browsing.
 The explanation must clearly state that the website is a phishing site and summarize the key reasons why.`;
@@ -233,66 +233,139 @@ ${params.url}
 		params.explanation = params.explanation.slice(0, endOfSentence + 1);
 	}
 
-	await page.goto("https://safebrowsing.google.com/safebrowsing/report_phish/?hl=de");
+	const { page, context } = await getBrowserPage(undefined, "de");
 
-	await page.waitForSelector(`#mat-input-0`);
-	await page.type(`#mat-input-0`, params.url, {});
-	await page.type(`#mat-input-1`, params.explanation, {});
+	try {
+		const report_url = `https://safebrowsing.google.com/safebrowsing/report_phish/?hl=de&url=${encodeURIComponent(params.url)}`;
 
-	await page.click(`button[type="submit"]`);
+		const { ANTICAPTCHA_API_KEY } = process.env;
+		var token = undefined as string | undefined;
 
-	let card = await page.waitForSelector(`.form-status-card`);
-	if (!card) throw new Error("Failed to find submission status card on Google Safe Browsing report page.");
+		if (ANTICAPTCHA_API_KEY) {
+			anticaptcha.setAPIKey(ANTICAPTCHA_API_KEY || "");
 
-	let hasSuccess = await card.$(".success");
-	let hasFailure = await card.$(".failure");
+			const uri = new URL(report_url);
 
-	let text = await card.$eval("mat-card-content", (el) => el.textContent?.trim() || "");
+			console.log("Solving reCAPTCHA v3 for Google Safe Browsing report page...");
+			console.log(uri.origin + uri.pathname);
 
-	if (hasFailure) {
-		console.warn("Google Safe Browsing report failed:", text);
-		await sleep(3000); // wait before retrying
-		// await page.click(`button[type="submit"]`);
+			token = await anticaptcha.solveRecaptchaV3(
+				report_url,
+				"6LdyJYcqAAAAAIkFpjuB7uz9WgDXmMECefi-8X-d",
+				0.9, //minimum score required: 0.3, 0.7 or 0.9
+				"submitUrl"
+			);
+			console.log("solved token:", token);
+
+			// process.exit();
+
+			await page.setRequestInterception(true);
+
+			page.on("request", (req) => {
+				const url = req.url();
+				// Block specific URL
+				if (
+					(url.includes("https://www.google.com/recaptcha/api") || url.includes("https://www.gstatic.com/recaptcha/releases")) &&
+					url.includes(".js")
+				) {
+					req.abort();
+					console.log("Blocked:", url);
+				} else {
+					req.continue();
+				}
+			});
+		}
+
+		await page.goto(report_url, {
+			waitUntil: "domcontentloaded",
+		});
+
+		if (token) {
+			await page.evaluate((token) => {
+				// Replacement for grecaptcha
+				// @ts-ignore
+				window.grecaptcha = {
+					execute: function (sitekey: string, parameters: any) {
+						console.log(`called execute function with sitekey ${sitekey} and parameters`, parameters);
+
+						return new Promise((resolve) => resolve(token));
+					},
+					ready: function (callback: () => void) {
+						callback();
+					},
+				};
+
+				// @ts-ignore
+				window.grecaptcha.enterprise = window.grecaptcha;
+			}, token);
+		}
+
+		await page.waitForSelector(`#mat-input-0`);
+
+		await page.type(`#mat-input-1`, params.explanation);
+
 		await page.focus(`button[type="submit"]`);
+		await sleep(Math.random() * 500 + 500);
 		await page.keyboard.press("Enter");
-		await sleep(3000);
 
-		card = await page.waitForSelector(`.form-status-card`);
+		let card = await page.waitForSelector(`.form-status-card`);
 		if (!card) throw new Error("Failed to find submission status card on Google Safe Browsing report page.");
 
-		hasSuccess = await card.$(".success");
-		hasFailure = await card.$(".failure");
+		let hasSuccess = !!(await card.$(".success"));
+		let hasFailure = !!(await card.$(".failure"));
 
-		text = await card.$eval("mat-card-content", (el) => el.textContent?.trim() || "");
-
-		console.log("Retry result:", text, { hasSuccess, hasFailure });
+		let text = await card.$eval("mat-card-content", (el) => el.textContent?.trim() || "");
 
 		if (hasFailure) {
-			if (1 == 1) return;
-			if (params.tries >= 0) {
-				throw new Error("Google Safe Browsing report failed after multiple tries: " + text);
+			console.warn("Google Safe Browsing report failed:", text);
+			await sleep(3000); // wait before retrying
+			// await page.click(`button[type="submit"]`);
+
+			await page.focus(`button[type="submit"]`);
+			await sleep(Math.random() * 500 + 500);
+			await page.keyboard.press("Enter");
+			await sleep(3000);
+
+			card = await page.waitForSelector(`.form-status-card`);
+			if (!card) throw new Error("Failed to find submission status card on Google Safe Browsing report page.");
+
+			hasSuccess = !!(await card.$(".success"));
+			hasFailure = !!(await card.$(".failure"));
+
+			text = await card.$eval("mat-card-content", (el) => el.textContent?.trim() || "");
+
+			console.log("Retry result:", text, { hasSuccess, hasFailure });
+
+			if (hasFailure) {
+				if (params.tries >= 0) {
+					throw new Error("Google Safe Browsing report failed after multiple tries: " + text);
+				}
+
+				console.warn("Google Safe Browsing report failed, retrying...", text);
+				await page.close();
+				return reportToGoogleSafeBrowsing({ ...params, tries: params.tries + 1 });
 			}
-
-			console.warn("Google Safe Browsing report failed, retrying...", text);
-			await page.close();
-			return reportToGoogleSafeBrowsing({ ...params, tries: params.tries + 1 });
 		}
+
+		if (!hasSuccess) throw new Error("Google Safe Browsing report submission status unknown: " + card.evaluate((el) => el.outerHTML));
+
+		const reportId = await ReportsEntity.create({
+			submissionId: params.submissionId,
+			to: `Google Safe Browsing`,
+			body: params.explanation,
+		});
+
+		await context.close();
+
+		return {
+			success: true,
+			reportId: reportId,
+			info: text,
+		};
+	} catch (err) {
+		await context.close();
+		throw err;
 	}
-
-	if (!hasSuccess) throw new Error("Google Safe Browsing report submission status unknown: " + card.evaluate((el) => el.outerHTML));
-
-	const reportId = await ReportsEntity.create({
-		submissionId: params.submissionId,
-		to: `Google Safe Browsing`,
-		subject: `Phishing report submitted to Google Safe Browsing`,
-		body: params.explanation,
-	});
-
-	return {
-		success: true,
-		reportId: reportId,
-		info: text,
-	};
 }
 
 export async function reportToGoogleSafeBrowsingAPI(params: { url: string; projectNumber?: string }) {

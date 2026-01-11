@@ -13,6 +13,7 @@ import Link from "next/link";
 type SubmissionDetail = {
 	id: string;
 	kind: "website" | "email";
+	info: string;
 	source: string;
 	status: string;
 	createdAt: string;
@@ -36,7 +37,8 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 	const [websiteHtml, setWebsiteHtml] = useState<string | null>(null);
 	const [websiteHtmlError, setWebsiteHtmlError] = useState<string | null>(null);
 
-	const targetName = submission?.kind === "website" ? submission.data.website?.url : submission?.data.email?.subject;
+	const targetName = submission?.kind === "website" ? new URL(submission.data.website?.url).hostname : submission?.data.email?.subject;
+
 	const websiteScreenshot = submission?.artifacts?.find(
 		(a) => (a.name || "").toLowerCase() === "website.png" && (a.mimeType || "").startsWith("image/")
 	);
@@ -182,6 +184,15 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 						<div className="aspect-video bg-muted overflow-hidden rounded">
 							<img src={`/api/artifacts/${websiteScreenshot.id}`} alt="website.png" className="object-cover w-full h-full" />
 						</div>
+					</Card>
+				) : submission.info ? (
+					<Card>
+						<CardHeader>
+							<CardTitle>Error</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<div className="text-sm whitespace-pre-wrap">{submission.info}</div>
+						</CardContent>
 					</Card>
 				) : null}
 			</div>

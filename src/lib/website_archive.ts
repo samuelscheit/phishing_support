@@ -25,24 +25,9 @@ export type WebsiteArchiveResult = {
 };
 
 async function archiveWebsiteInternal(link: string, country_code?: string): Promise<WebsiteArchiveResult> {
-	const browser = await getBrowser();
-
 	console.log(`Archiving website ${link} using country code ${country_code || "none"}`);
 
-	const context = await browser.createBrowserContext({
-		proxyServer: country_code ? `http://109.199.115.133:3128` : undefined,
-	});
-
-	const p = await context.newPage();
-
-	if (country_code) {
-		await p.authenticate({
-			username: country_code.toLowerCase(),
-			password: "any",
-		});
-	}
-
-	const page = await getBrowserPage(p);
+	const { page, context } = await getBrowserPage(undefined, country_code);
 
 	const url = new URL(link);
 	const hostname = url.hostname;
@@ -57,6 +42,11 @@ async function archiveWebsiteInternal(link: string, country_code?: string): Prom
 				if (hostname !== uri.hostname) {
 					reject(new Error("Redirected to different hostname"));
 				}
+			});
+
+			page.on("request", (request) => {
+				console.log(`Request: ${request.method()} ${request.url()}`);
+				return request.continue();
 			});
 
 			await page.goto(link, {

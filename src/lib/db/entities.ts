@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { db } from "./index";
 import {
@@ -148,7 +148,18 @@ export class ArtifactsEntity {
 					createdAt: nowDate(),
 				},
 			])
-			.returning({ id: artifacts.id });
+			.returning({ id: artifacts.id })
+			.onConflictDoUpdate({
+				target: [artifacts.sha256, artifacts.size],
+				set: {
+					name: sql.raw(`excluded.${artifacts.name.name}`),
+					kind: sql.raw(`excluded.${artifacts.kind.name}`),
+					mimeType: sql.raw(`excluded.${artifacts.mimeType.name}`),
+					submissionId: sql.raw(`excluded.${artifacts.submissionId.name}`),
+					createdAt: sql.raw(`excluded.${artifacts.createdAt.name}`),
+				},
+			});
+
 		return row!.id;
 	}
 

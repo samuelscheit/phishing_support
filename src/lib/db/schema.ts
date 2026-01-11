@@ -52,10 +52,10 @@ export const submissions = sqliteTable(
 		info: text("info"),
 		createdAt: timestamp("created_at")
 			.notNull()
-			.default(sql`(unixepoch())`),
+			.default(sql`(unixepoch() * 1000)`),
 		updatedAt: timestamp("updated_at")
 			.notNull()
-			.default(sql`(unixepoch())`),
+			.default(sql`(unixepoch() * 1000)`),
 	},
 	(table) => [
 		uniqueIndex("submissions_dedupe_key_unique").on(table.dedupeKey),
@@ -78,7 +78,7 @@ export const analysisRuns = sqliteTable(
 		data: text("data", { mode: "json" }),
 		createdAt: timestamp("created_at")
 			.notNull()
-			.default(sql`(unixepoch())`),
+			.default(sql`(unixepoch() * 1000)`),
 	},
 	(table) => []
 );
@@ -94,7 +94,7 @@ export const artifacts = sqliteTable(
 		kind: text("kind").notNull(),
 		createdAt: timestamp("created_at")
 			.notNull()
-			.default(sql`(unixepoch())`),
+			.default(sql`(unixepoch() * 1000)`),
 		mimeType: text("mime_type"),
 		sha256: text("sha256"),
 		size: int("size"),
@@ -129,10 +129,10 @@ export const reports = sqliteTable(
 		data: text("data", { mode: "json" }),
 		createdAt: timestamp("created_at")
 			.notNull()
-			.default(sql`(unixepoch())`),
+			.default(sql`(unixepoch() * 1000)`),
 		updatedAt: timestamp("updated_at")
 			.notNull()
-			.default(sql`(unixepoch())`),
+			.default(sql`(unixepoch() * 1000)`),
 	},
 	(table) => [
 		index("reports_submission_created_idx").on(table.submissionId, table.createdAt),

@@ -16,7 +16,7 @@ import { getBrowser, getBrowserPage } from "./utils";
 
 const browser = await getBrowser();
 
-const page = await getBrowserPage();
+const { page, context } = await getBrowserPage();
 
 // await page.goto("https://infosimples.github.io/detect-headless/");
 await page.goto("https://ext.to/");

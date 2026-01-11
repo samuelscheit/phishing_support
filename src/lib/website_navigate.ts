@@ -109,7 +109,7 @@ function find_element_by_label(page: Page, label: string) {
 async function navigate_website() {
 	const link = "https://saewar.com/De56Mgw1A";
 
-	const page = await getBrowserPage();
+	const { page, context } = await getBrowserPage();
 	const dirname = path.join(__dirname, "..", "..", "data", "website_assets", new URL(link).hostname);
 
 	const width = 1920;

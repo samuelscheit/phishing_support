@@ -40,6 +40,7 @@
 		"@ai-sdk/anthropic": "^3.0.9",
 		"@ai-sdk/google": "^3.0.6",
 		"@ai-sdk/openai": "^3.0.7",
+		"@antiadmin/anticaptchaofficial": "^1.0.55",
 		"@bernierllc/smtp-analyzer": "^0.3.0",
 		"@hookform/resolvers": "^5.2.2",
 		"@langchain/openai": "^1.2.1",

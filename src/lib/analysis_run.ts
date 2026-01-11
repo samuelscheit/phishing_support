@@ -19,6 +19,7 @@ export async function runStreamedAnalysisRun(params: { submissionId: bigint; opt
 	if (params.submissionId) await publishEvent(`run:${params.submissionId}`, { type: "run.created", runId });
 
 	try {
+		params.options.stream = true;
 		var stream = await model.responses.create(params.options);
 	} catch (err) {
 		console.dir(params.options, { depth: null });

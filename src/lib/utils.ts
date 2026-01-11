@@ -58,7 +58,7 @@ export async function getBrowser() {
 		"--disable-blink-features=AutomationControlled",
 		"--disable-gpu",
 		"--enable-webgl",
-		`--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36`,
+		// `--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36`,
 	];
 
 	// Chromium inside containers commonly requires disabling sandbox.
@@ -77,6 +77,7 @@ export async function getBrowser() {
 		},
 		acceptInsecureCerts: true,
 		dumpio: true,
+		slowMo: 25,
 	});
 
 	return browserPromise;
@@ -176,16 +177,16 @@ export async function getBrowserPage(p?: Page) {
 		console.log("Received response:", response.status(), response.url());
 	});
 
-	await page.setUserAgent(
-		`Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36`,
-		{
-			architecture: "x86",
-			mobile: false,
-			model: "",
-			platform: "MacIntel",
-			platformVersion: "10_15_7",
-		}
-	);
+	// await page.setUserAgent(
+	// 	`Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36`,
+	// 	{
+	// 		architecture: "x86",
+	// 		mobile: false,
+	// 		model: "",
+	// 		platform: "MacIntel",
+	// 		platformVersion: "10_15_7",
+	// 	}
+	// );
 
 	const waitForCloudflare = async (frame: Frame, page: Page) => {
 		const source = page.url();
@@ -458,4 +459,5 @@ export async function getUserCC(req: Request) {
 		console.log("Country code response:", response.data);
 		return response.data.country as string;
 	} catch (error) {}
+	return "de";
 }

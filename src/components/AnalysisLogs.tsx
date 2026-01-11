@@ -56,6 +56,7 @@ export function AnalysisLogs({ streamId, output }: { streamId: string; output?: 
 	};
 
 	useEffect(() => {
+		console.log("Starting log stream for", streamId);
 		if (outputText) return;
 		const res = new EventSource(`/api/stream/${streamId}`);
 

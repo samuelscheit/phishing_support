@@ -27,6 +27,8 @@ export type WebsiteArchiveResult = {
 async function archiveWebsiteInternal(link: string, country_code?: string): Promise<WebsiteArchiveResult> {
 	const browser = await getBrowser();
 
+	console.log(`Archiving website ${link} using country code ${country_code || "none"}`);
+
 	const context = await browser.createBrowserContext({
 		proxyServer: country_code ? `http://109.199.115.133:3128` : undefined,
 	});
@@ -80,6 +82,8 @@ async function archiveWebsiteInternal(link: string, country_code?: string): Prom
 				captureBeyondViewport: true,
 				type: "png",
 			});
+
+			await context.close();
 
 			reject(err);
 		}

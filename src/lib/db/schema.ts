@@ -27,9 +27,17 @@ export type SubmissionData = { kind: "email"; email: EmailSubmissionData } | { k
 
 const bignum = customType<{ data: bigint; driverData: bigint }>({
 	dataType: () => "INTEGER",
-	fromDriver: (value) => BigInt(value),
+	fromDriver: (value) => {
+		return BigInt(value);
+	},
 	// @ts-ignore
 	toDriver: (value) => value.toString(),
+});
+
+const timestamp = customType<{ data: Date; driverData: bigint }>({
+	dataType: () => "INTEGER",
+	toDriver: (value) => BigInt(value.getTime()),
+	fromDriver: (value) => new Date(Number(value)),
 });
 
 export const submissions = sqliteTable(
@@ -42,10 +50,10 @@ export const submissions = sqliteTable(
 		dedupeKey: text("dedupe_key").notNull(),
 		status: text("status", { enum: submissionStatus }).notNull().default("new"),
 		info: text("info"),
-		createdAt: int("created_at", { mode: "timestamp" })
+		createdAt: timestamp("created_at")
 			.notNull()
 			.default(sql`(unixepoch())`),
-		updatedAt: int("updated_at", { mode: "timestamp" })
+		updatedAt: timestamp("updated_at")
 			.notNull()
 			.default(sql`(unixepoch())`),
 	},
@@ -68,7 +76,7 @@ export const analysisRuns = sqliteTable(
 		input: text("input", { mode: "json" }).$type<Array<ResponseInputItem>>(),
 		output: text("output", { mode: "json" }).$type<Array<ResponseOutputItem>>(),
 		data: text("data", { mode: "json" }),
-		createdAt: int("created_at", { mode: "timestamp" })
+		createdAt: timestamp("created_at")
 			.notNull()
 			.default(sql`(unixepoch())`),
 	},
@@ -84,7 +92,7 @@ export const artifacts = sqliteTable(
 		}),
 		name: text("name"),
 		kind: text("kind").notNull(),
-		createdAt: int("created_at", { mode: "timestamp" })
+		createdAt: timestamp("created_at")
 			.notNull()
 			.default(sql`(unixepoch())`),
 		mimeType: text("mime_type"),
@@ -119,10 +127,10 @@ export const reports = sqliteTable(
 		// refereence to artifacts table for attachments
 		attachmentsArtifactIds: text("attachments_artifact_ids", { mode: "json" }).$type<string[]>(),
 		data: text("data", { mode: "json" }),
-		createdAt: int("created_at", { mode: "timestamp" })
+		createdAt: timestamp("created_at")
 			.notNull()
 			.default(sql`(unixepoch())`),
-		updatedAt: int("updated_at", { mode: "timestamp" })
+		updatedAt: timestamp("updated_at")
 			.notNull()
 			.default(sql`(unixepoch())`),
 	},

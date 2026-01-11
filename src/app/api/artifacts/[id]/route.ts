@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { ArtifactsEntity } from "@/lib/db/entities";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -11,10 +11,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 			return new Response("Not found", { status: 404 });
 		}
 
-		return new Response(artifact.blob.buffer as ArrayBuffer, {
+		const mimeType = artifact.mimeType || "application/octet-stream";
+		const name = artifact.name || "artifact";
+
+		// Serve the raw artifact bytes.
+		return new Response(artifact.blob as unknown as BodyInit, {
 			headers: {
-				"Content-Type": artifact.mimeType || "application/octet-stream",
-				"Content-Disposition": `inline; filename="${artifact.name || "artifact"}"`,
+				"Content-Type": mimeType,
+				"Content-Disposition": `inline; filename="${name}"`,
 			},
 		});
 	} catch (err) {

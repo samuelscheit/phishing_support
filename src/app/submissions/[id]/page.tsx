@@ -33,6 +33,17 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 	const resolvedParams = use(params);
 	const [submission, setSubmission] = useState<SubmissionDetail | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [websiteHtml, setWebsiteHtml] = useState<string | null>(null);
+	const [websiteHtmlError, setWebsiteHtmlError] = useState<string | null>(null);
+
+	const targetName = submission?.kind === "website" ? submission.data.website?.url : submission?.data.email?.subject;
+	const websiteScreenshot = submission?.artifacts?.find(
+		(a) => (a.name || "").toLowerCase() === "website.png" && (a.mimeType || "").startsWith("image/")
+	);
+	const websiteMhtml = submission?.artifacts?.find(
+		(a) => (a.name || "").toLowerCase() === "website.mhtml" || (a.mimeType || "").toLowerCase() === "text/mhtml"
+	);
+	const artifacts = submission?.artifacts.filter((x) => x !== websiteScreenshot) || [];
 
 	useEffect(() => {
 		const fetchDetail = async () => {
@@ -54,10 +65,40 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 		return () => clearInterval(interval);
 	}, [resolvedParams.id]);
 
+	useEffect(() => {
+		let cancelled = false;
+		const renderWebsite = async () => {
+			setWebsiteHtml(null);
+			setWebsiteHtmlError(null);
+			if (submission?.kind !== "website") return;
+			if (!websiteMhtml?.id) {
+				setWebsiteHtmlError("No website snapshot (MHTML) artifact found.");
+				return;
+			}
+
+			try {
+				const res = await fetch(`/api/artifacts/${websiteMhtml.id}`);
+				if (!res.ok) throw new Error(`Failed to fetch MHTML: ${res.status}`);
+				const bytes = new Uint8Array(await res.arrayBuffer());
+				const { convert } = await import("mhtml-to-html/browser");
+				const { data } = await convert(bytes, { enableScripts: false, fetchMissingResources: false });
+				if (cancelled) return;
+				setWebsiteHtml(data);
+			} catch (err) {
+				console.error("Failed to render website snapshot:", err);
+				if (cancelled) return;
+				setWebsiteHtmlError("Failed to render website snapshot.");
+			}
+		};
+
+		renderWebsite();
+		return () => {
+			cancelled = true;
+		};
+	}, [submission?.kind, websiteMhtml?.id]);
+
 	if (loading && !submission) return <div className="p-10 text-center">Loading...</div>;
 	if (!submission) return <div className="p-10 text-center">Submission not found</div>;
-
-	const targetName = submission.kind === "website" ? submission.data.website?.url : submission.data.email?.subject;
 
 	return (
 		<div className="container mx-auto py-10 px-4 space-y-6">
@@ -84,7 +125,6 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 				<Card className="md:col-span-2">
 					<CardHeader>
 						<CardTitle>Details</CardTitle>
-						<CardDescription>Raw data and metadata from the submission</CardDescription>
 					</CardHeader>
 					<CardContent>
 						<div className="space-y-4">
@@ -136,14 +176,55 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 						</div>
 					</CardContent>
 				</Card>
+
+				{websiteScreenshot ? (
+					<Card>
+						<div className="aspect-video bg-muted overflow-hidden rounded">
+							<img src={`/api/artifacts/${websiteScreenshot.id}`} alt="website.png" className="object-cover w-full h-full" />
+						</div>
+					</Card>
+				) : null}
 			</div>
 
 			<Tabs defaultValue="reports" className="w-full">
 				<TabsList>
+					{submission.kind === "website" ? <TabsTrigger value="website">Website</TabsTrigger> : null}
 					<TabsTrigger value="reports">Reports ({submission.reports.length})</TabsTrigger>
 					<TabsTrigger value="runs">Analysis ({submission.analysisRuns.length})</TabsTrigger>
-					<TabsTrigger value="artifacts">Artifacts ({submission.artifacts.length})</TabsTrigger>
+					<TabsTrigger value="artifacts">Artifacts ({artifacts.length})</TabsTrigger>
 				</TabsList>
+				{submission.kind === "website" && websiteMhtml ? (
+					<TabsContent value="website" className="space-y-4 mt-4">
+						<Card className="overflow-hidden">
+							<CardHeader className="py-3">
+								<CardTitle className="text-sm flex flex-row items-center gap-2">
+									Archived Website
+									<div className="text-xs text-muted-foreground font-normal">
+										(from {format(new Date(websiteMhtml.createdAt), "PPP p")})
+									</div>
+								</CardTitle>
+								<CardDescription className="text-xs flex flex-row gap-8">
+									<div className="text-zinc-500 font-semibold font-mono">DO NOT ENTER ANY SENSITIVE INFORMATION</div>
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="p-0">
+								{websiteHtmlError ? (
+									<div className="p-4 text-sm text-muted-foreground">{websiteHtmlError}</div>
+								) : websiteHtml ? (
+									<iframe
+										title="Archived Website"
+										srcDoc={websiteHtml}
+										className="w-full h-[75vh] bg-background"
+										sandbox=""
+										referrerPolicy="no-referrer"
+									/>
+								) : (
+									<div className="p-4 text-sm text-muted-foreground">Rendering…</div>
+								)}
+							</CardContent>
+						</Card>
+					</TabsContent>
+				) : null}
 				<TabsContent value="reports" className="space-y-4 mt-4">
 					{submission.reports.length > 0 ? (
 						submission.reports.map((r: any) => (
@@ -187,8 +268,8 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 					))}
 				</TabsContent>
 				<TabsContent value="artifacts" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-					{submission.artifacts.length > 0 ? (
-						submission.artifacts.map((a) => (
+					{artifacts.length > 0 ? (
+						artifacts.map((a) => (
 							<Card key={a.id} className="overflow-hidden">
 								{a.mimeType?.startsWith("image/") ? (
 									<div className="aspect-video bg-muted relative">

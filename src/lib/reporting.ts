@@ -2,7 +2,7 @@ import * as toon from "@toon-format/toon";
 
 import { ReportsEntity, SubmissionsEntity } from "./db/entities";
 import { runStreamedAnalysisRun } from "./analysis_run";
-import { max_output_tokens, mailer } from "./utils";
+import { max_output_tokens, mailer, getBrowserPage, sleep } from "./utils";
 import type { WhoISInfo } from "./website_info";
 import { MailData } from "./mail_ai";
 import { GoogleAuth } from "google-auth-library";
@@ -19,7 +19,12 @@ type ReportAttachment = {
 	contentType?: string;
 };
 
-async function generateReportDraft(params: { submissionId: bigint; system: string; user: string }): Promise<ReportDraft> {
+async function generateReportDraft(params: {
+	submissionId: bigint;
+	system: string;
+	user: string;
+	withoutHeader?: boolean;
+}): Promise<ReportDraft> {
 	const { result } = await runStreamedAnalysisRun({
 		submissionId: params.submissionId,
 		options: {
@@ -35,12 +40,16 @@ async function generateReportDraft(params: { submissionId: bigint; system: strin
 					name: "report_email",
 					schema: {
 						type: "object",
-						properties: {
-							to: { type: "string" },
-							subject: { type: "string" },
-							body: { type: "string" },
-						},
-						required: ["to", "subject", "body"],
+						properties: params.withoutHeader
+							? {
+									body: { type: "string" },
+								}
+							: {
+									to: { type: "string" },
+									subject: { type: "string" },
+									body: { type: "string" },
+								},
+						required: params.withoutHeader ? ["body"] : ["to", "subject", "body"],
 						additionalProperties: false,
 					},
 					strict: true,
@@ -181,7 +190,112 @@ ${toon.encode({ ...params.mail, eml: undefined })}
 	});
 }
 
-export async function reportToGoogleSafeBrowsing(params: { url: string; projectNumber?: string }) {
+export async function reportToGoogleSafeBrowsing(params: {
+	url: string;
+	explanation?: string;
+	tries?: number;
+	submissionId: bigint;
+	analysisText: string;
+}) {
+	if (!params.tries) params.tries = 0;
+
+	const page = await getBrowserPage();
+
+	if (!params.explanation) {
+		const system = `You are an expert phishing analyst. Write a concise explanation for reporting a phishing website to Google Safe Browsing.
+The explanation must clearly state that the website is a phishing site and summarize the key reasons why.`;
+
+		const user = `Write the explanation based on this analysis:
+
+${params.analysisText}
+
+Phishing Website URL:
+${params.url}
+`;
+
+		const draft = await generateReportDraft({
+			submissionId: params.submissionId,
+			system,
+			user,
+			withoutHeader: true,
+		});
+
+		params.explanation = draft.body;
+	}
+
+	if (params.explanation.length > 800) {
+		let endOfSentence = params.explanation.lastIndexOf(".", 800);
+
+		if (endOfSentence === -1) {
+			endOfSentence = 800;
+		}
+
+		params.explanation = params.explanation.slice(0, endOfSentence + 1);
+	}
+
+	await page.goto("https://safebrowsing.google.com/safebrowsing/report_phish/?hl=de");
+
+	await page.waitForSelector(`#mat-input-0`);
+	await page.type(`#mat-input-0`, params.url, {});
+	await page.type(`#mat-input-1`, params.explanation, {});
+
+	await page.click(`button[type="submit"]`);
+
+	let card = await page.waitForSelector(`.form-status-card`);
+	if (!card) throw new Error("Failed to find submission status card on Google Safe Browsing report page.");
+
+	let hasSuccess = await card.$(".success");
+	let hasFailure = await card.$(".failure");
+
+	let text = await card.$eval("mat-card-content", (el) => el.textContent?.trim() || "");
+
+	if (hasFailure) {
+		console.warn("Google Safe Browsing report failed:", text);
+		await sleep(3000); // wait before retrying
+		// await page.click(`button[type="submit"]`);
+		await page.focus(`button[type="submit"]`);
+		await page.keyboard.press("Enter");
+		await sleep(3000);
+
+		card = await page.waitForSelector(`.form-status-card`);
+		if (!card) throw new Error("Failed to find submission status card on Google Safe Browsing report page.");
+
+		hasSuccess = await card.$(".success");
+		hasFailure = await card.$(".failure");
+
+		text = await card.$eval("mat-card-content", (el) => el.textContent?.trim() || "");
+
+		console.log("Retry result:", text, { hasSuccess, hasFailure });
+
+		if (hasFailure) {
+			if (1 == 1) return;
+			if (params.tries >= 0) {
+				throw new Error("Google Safe Browsing report failed after multiple tries: " + text);
+			}
+
+			console.warn("Google Safe Browsing report failed, retrying...", text);
+			await page.close();
+			return reportToGoogleSafeBrowsing({ ...params, tries: params.tries + 1 });
+		}
+	}
+
+	if (!hasSuccess) throw new Error("Google Safe Browsing report submission status unknown: " + card.evaluate((el) => el.outerHTML));
+
+	const reportId = await ReportsEntity.create({
+		submissionId: params.submissionId,
+		to: `Google Safe Browsing`,
+		subject: `Phishing report submitted to Google Safe Browsing`,
+		body: params.explanation,
+	});
+
+	return {
+		success: true,
+		reportId: reportId,
+		info: text,
+	};
+}
+
+export async function reportToGoogleSafeBrowsingAPI(params: { url: string; projectNumber?: string }) {
 	const projectNumber =
 		params.projectNumber ||
 		process.env.WEBRISK_PROJECT_NUMBER ||

@@ -5,15 +5,8 @@ import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
-type Submission = {
-	id: string;
-	type: "website" | "email";
-	target: string;
-	title: string | null;
-	status: string;
-	createdAt: string;
-};
+import { SubmissionStatus } from "@/components/SubmissionStatus";
+import { Submission } from "../lib/db/schema";
 
 export function SubmissionsList() {
 	const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -52,23 +45,17 @@ export function SubmissionsList() {
 			{submissions.map((s) => (
 				<Link key={s.id} href={`/submissions/${s.id}`}>
 					<Card className="hover:bg-accent transition-colors cursor-pointer h-full">
-						<CardHeader className="pb-2">
+						<CardContent className="py-4 space-y-2">
 							<div className="flex justify-between items-start gap-2">
-								<Badge variant={s.type === "website" ? "default" : "outline"} className="capitalize">
-									{s.type}
-								</Badge>
+								<SubmissionStatus status={s.status} />
+
 								<span className="text-xs text-muted-foreground whitespace-nowrap">
 									{formatDistanceToNow(new Date(s.createdAt), { addSuffix: true })}
 								</span>
 							</div>
-							<CardTitle className="text-lg line-clamp-1 mt-2">{s.title || s.target}</CardTitle>
-							<CardDescription className="line-clamp-1 font-mono text-xs">{s.target}</CardDescription>
-						</CardHeader>
-						<CardContent>
-							<div className="flex items-center gap-2">
-								<div className={`w-2 h-2 rounded-full ${s.status === "completed" ? "bg-green-500" : "bg-yellow-500"}`} />
-								<span className="text-sm capitalize">{s.status}</span>
-							</div>
+							<CardTitle className="text-lg line-clamp-1">
+								{s.data?.kind === "email" ? s.data.email.subject : s.data.website.url}
+							</CardTitle>
 						</CardContent>
 					</Card>
 				</Link>

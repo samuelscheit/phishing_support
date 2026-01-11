@@ -4,30 +4,21 @@ import { useEffect, useState, use } from "react";
 import { format } from "date-fns";
 import { AnalysisLogs } from "@/components/AnalysisLogs";
 import { AnalysisProgress } from "@/components/AnalysisProgress";
+import { SubmissionStatus } from "@/components/SubmissionStatus";
+import { ExternalLinkConfirm } from "@/components/ExternalLinkConfirm";
+import { UrlParts } from "@/components/UrlParts";
+import { WhoisTab } from "@/components/WhoisTab";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ExternalLink, Mail, Globe, MapPin, Clock, ShieldAlert } from "lucide-react";
+import { ExternalLink, Mail, Globe, ShieldAlert } from "lucide-react";
 import Link from "next/link";
+import { AnalysisRun, Artifact, Report, Submission } from "../../../lib/db/schema";
 
-type SubmissionDetail = {
-	id: string;
-	kind: "website" | "email";
-	info: string;
-	source: string;
-	status: string;
-	createdAt: string;
-	data: any;
-	analysisRuns: any[];
-	reports: any[];
-	artifacts: {
-		id: string;
-		name: string;
-		kind: string;
-		mimeType: string;
-		size: number;
-		createdAt: string;
-	}[];
+type SubmissionDetail = Submission & {
+	analysisRuns: AnalysisRun[];
+	reports: Report[];
+	artifacts: Artifact[];
 };
 
 export default function SubmissionPage({ params }: { params: Promise<{ id: string }> }) {
@@ -37,7 +28,23 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 	const [websiteHtml, setWebsiteHtml] = useState<string | null>(null);
 	const [websiteHtmlError, setWebsiteHtmlError] = useState<string | null>(null);
 
-	const targetName = submission?.kind === "website" ? new URL(submission.data.website?.url).hostname : submission?.data.email?.subject;
+	const statusKey = (submission?.status || "").toLowerCase();
+	const isFailed = statusKey === "failed";
+	const isReported = statusKey === "reported";
+
+	const safeHostname = (rawUrl?: string) => {
+		if (!rawUrl) return null;
+		try {
+			return new URL(rawUrl).hostname;
+		} catch {
+			return null;
+		}
+	};
+
+	const targetName =
+		submission?.data?.kind === "website"
+			? safeHostname(submission.data.website?.url)
+			: (submission?.data.email?.subject as string | undefined) || "Untitled Submission";
 
 	const websiteScreenshot = submission?.artifacts?.find(
 		(a) => (a.name || "").toLowerCase() === "website.png" && (a.mimeType || "").startsWith("image/")
@@ -111,90 +118,130 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 							Submissions
 						</Link>
 						<span className="text-muted-foreground">/</span>
-						<span className="text-sm font-medium">{submission.id}</span>
+						<span className="text-sm font-medium">{targetName}</span>
 					</div>
-					<h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-						{submission.kind === "website" ? <Globe className="w-8 h-8" /> : <Mail className="w-8 h-8" />}
-						{targetName || "Untitled Submission"}
-					</h1>
 				</div>
-				<Badge className="text-sm px-3 py-1 capitalize" variant={submission.status === "completed" ? "default" : "outline"}>
-					{submission.status}
-				</Badge>
 			</div>
 
-			<div className="grid gap-6 md:grid-cols-3">
-				<Card className="md:col-span-2">
-					<CardHeader>
-						<CardTitle>Details</CardTitle>
+			<div className="grid gap-6 md:grid-cols-12">
+				<Card className="md:col-span-8">
+					<CardHeader className="pb-4">
+						<div className="flex justify-between items-center gap-4">
+							<CardTitle className="flex flex-row items-center gap-2 min-w-0">
+								{submission.kind === "website" ? (
+									<Globe className="h-8 w-8 shrink-0" />
+								) : (
+									<Mail className="h-8 w-8 shrink-0" />
+								)}
+								<span className="leading-none text-2xl -mt-1 truncate">{targetName}</span>
+							</CardTitle>
+							<div className="flex flex-row items-end gap-2 shrink-0">
+								<Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">
+									{format(new Date(submission.createdAt), "PPP p")}
+								</Badge>
+
+								<SubmissionStatus status={submission.status} />
+							</div>
+						</div>
 					</CardHeader>
-					<CardContent>
-						<div className="space-y-4">
-							<div className="grid grid-cols-2 gap-4">
-								<div className="flex items-center gap-2 text-sm">
-									<Clock className="w-4 h-4 text-muted-foreground" />
-									<span className="text-muted-foreground">Submitted:</span>
-									<span>{format(new Date(submission.createdAt), "PPP p")}</span>
+					<CardContent className="space-y-5">
+						{isReported && submission.data.kind === "website" ? (
+							<div className="rounded-md border bg-destructive/10 p-3">
+								<div className="flex items-center gap-2 text-xs font-semibold text-destructive">
+									<ShieldAlert className="h-4 w-4" />
+									Phishing Site
 								</div>
-								<div className="flex items-center gap-2 text-sm">
-									<MapPin className="w-4 h-4 text-muted-foreground" />
-									<span className="text-muted-foreground">Type:</span>
-									<span className="capitalize">{submission.kind}</span>
+								<div className="mt-1 text-sm font-bold text-destructive">
+									Do not visit this site or enter any sensitive information.
+								</div>
+								<div className="text-xs text-slate-800">
+									A phishing website is a fake site that looks like a real, trusted one (like your bank or a popular
+									store). It tries to trick you into entering private information, such as your email, phone number,
+									password or credit card.
 								</div>
 							</div>
+						) : null}
 
-							{submission.kind === "website" && (
-								<div className="space-y-2">
-									<h4 className="font-semibold text-sm">Target URL</h4>
-									<div className="flex items-center gap-2 p-2 bg-accent rounded font-mono text-sm break-all">
-										<span className="flex-1">{submission.data.website?.url}</span>
-										<a
-											href={submission.data.website?.url}
-											target="_blank"
-											rel="noreferrer"
-											className="shrink-0 hover:text-primary"
-										>
-											<ExternalLink className="w-4 h-4" />
-										</a>
+						{isFailed && submission.info ? (
+							<div className="rounded-md border bg-muted/30 p-3">
+								<div className="text-xs font-semibold text-muted-foreground">Failure reason</div>
+								<div className="mt-1 text-sm whitespace-pre-wrap">{submission.info}</div>
+							</div>
+						) : null}
+
+						{submission.data.kind === "website" && (
+							<div className="space-y-2">
+								<div className="flex items-center justify-between gap-3">
+									<h4 className="text-sm font-semibold">Website</h4>
+								</div>
+								<div className="flex items-start gap-2 rounded-md border bg-muted/30 p-3">
+									<div className="min-w-0 flex-1">
+										{submission.data.website?.url ? (
+											<UrlParts url={submission.data.website.url} />
+										) : (
+											<div className="font-mono text-xs">—</div>
+										)}
+									</div>
+									{submission.data.website?.url ? (
+										<ExternalLinkConfirm
+											href={submission.data.website.url}
+											trigger={
+												<button
+													type="button"
+													className="shrink-0 rounded-sm p-1 text-muted-foreground hover:text-primary"
+													aria-label="Open target URL"
+												>
+													<ExternalLink className="h-4 w-4" />
+												</button>
+											}
+										/>
+									) : null}
+								</div>
+							</div>
+						)}
+
+						{submission.data.kind === "email" && (
+							<div className="space-y-2">
+								<h4 className="text-sm font-semibold">Email</h4>
+								<div className="grid gap-3 sm:grid-cols-2">
+									<div className="rounded-lg border bg-muted/30 p-3">
+										<div className="text-xs text-muted-foreground">From</div>
+										<div className="mt-1 font-mono text-xs break-all">{submission.data.email?.from || "—"}</div>
+									</div>
+									<div className="rounded-lg border bg-muted/30 p-3">
+										<div className="text-xs text-muted-foreground">Subject</div>
+										<div className="mt-1 text-sm font-medium wrap-break-word">
+											{submission.data.email?.subject || "—"}
+										</div>
 									</div>
 								</div>
-							)}
-
-							{submission.kind === "email" && (
-								<div className="space-y-2">
-									<h4 className="font-semibold text-sm">Email Info</h4>
-									<div className="grid gap-2 text-sm">
-										<div className="flex gap-2">
-											<span className="text-muted-foreground w-16">From:</span>
-											<span className="font-mono">{submission.data.email?.from}</span>
-										</div>
-										<div className="flex gap-2">
-											<span className="text-muted-foreground w-16">Subject:</span>
-											<span>{submission.data.email?.subject}</span>
-										</div>
-									</div>
-								</div>
-							)}
-						</div>
+							</div>
+						)}
 					</CardContent>
 				</Card>
 
-				{websiteScreenshot ? (
-					<Card>
-						<div className="aspect-video bg-muted overflow-hidden rounded">
-							<img src={`/api/artifacts/${websiteScreenshot.id}`} alt="website.png" className="object-cover w-full h-full" />
-						</div>
-					</Card>
-				) : submission.info ? (
-					<Card>
-						<CardHeader>
-							<CardTitle>Error</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<div className="text-sm whitespace-pre-wrap">{submission.info}</div>
-						</CardContent>
-					</Card>
-				) : null}
+				<div className="md:col-span-4">
+					{websiteScreenshot ? (
+						<Card className="overflow-hidden">
+							<div className="aspect-video bg-muted overflow-hidden">
+								<img
+									src={`/api/artifacts/${websiteScreenshot.id}`}
+									alt="website.png"
+									className="object-cover w-full h-full"
+								/>
+							</div>
+						</Card>
+					) : isFailed && submission.info ? (
+						<Card>
+							<CardHeader>
+								<CardTitle>Error</CardTitle>
+							</CardHeader>
+							<CardContent>
+								<div className="text-sm whitespace-pre-wrap">{submission.info}</div>
+							</CardContent>
+						</Card>
+					) : null}
+				</div>
 			</div>
 
 			<Tabs defaultValue="reports" className="w-full">
@@ -202,7 +249,8 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 					{submission.kind === "website" ? <TabsTrigger value="website">Website</TabsTrigger> : null}
 					<TabsTrigger value="reports">Reports ({submission.reports.length})</TabsTrigger>
 					<TabsTrigger value="runs">Analysis ({submission.analysisRuns.length})</TabsTrigger>
-					<TabsTrigger value="artifacts">Artifacts ({artifacts.length})</TabsTrigger>
+					<TabsTrigger value="artifacts">Files ({artifacts.length})</TabsTrigger>
+					{submission.kind === "website" ? <TabsTrigger value="whois">WhoIS</TabsTrigger> : null}
 				</TabsList>
 				{submission.kind === "website" && websiteMhtml ? (
 					<TabsContent value="website" className="space-y-4 mt-4">
@@ -236,23 +284,25 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 						</Card>
 					</TabsContent>
 				) : null}
+				{submission.data.kind === "website" ? (
+					<TabsContent value="whois" className="space-y-4 mt-4">
+						<WhoisTab url={submission.data.website?.url} whois={submission.data.website?.whois} />
+					</TabsContent>
+				) : null}
 				<TabsContent value="reports" className="space-y-4 mt-4">
 					{submission.reports.length > 0 ? (
 						submission.reports.map((r: any) => (
 							<Card key={r.id} className="overflow-hidden">
-								<CardHeader className="bg-muted/50 py-3">
+								<CardContent className="p-4 space-y-3">
 									<div className="flex justify-between items-center">
-										<CardTitle className="text-sm font-mono uppercase">Report #{r.id}</CardTitle>
+										<CardTitle className="text-lg">{r.to}</CardTitle>
 										<Badge variant="outline">{r.type || "report"}</Badge>
 									</div>
-								</CardHeader>
-								<CardContent className="p-4 space-y-3">
-									<div className="text-sm">
-										<span className="text-muted-foreground">To:</span> {r.to || "Unknown"}
-									</div>
-									<div className="text-sm">
-										<span className="text-muted-foreground">Subject:</span> {r.subject || "Untitled"}
-									</div>
+									{r.subject && (
+										<div className="text-sm">
+											<span className="text-muted-foreground">Subject:</span> {r.subject}
+										</div>
+									)}
 									<div className="text-sm whitespace-pre-wrap">{r.body || "No body"}</div>
 								</CardContent>
 							</Card>
@@ -262,7 +312,7 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 					)}
 				</TabsContent>
 				<TabsContent value="runs" className="space-y-4 mt-4">
-					<AnalysisProgress streamId={submission.id} />
+					<AnalysisProgress streamId={submission.id} status={submission.status} />
 
 					{submission.analysisRuns.map((run: any) => (
 						<Card key={run.id} className="overflow-hidden">
@@ -284,7 +334,7 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 							<Card key={a.id} className="overflow-hidden">
 								{a.mimeType?.startsWith("image/") ? (
 									<div className="aspect-video bg-muted relative">
-										<img src={`/api/artifacts/${a.id}`} alt={a.name} className="object-cover w-full h-full" />
+										<img src={`/api/artifacts/${a.id}`} alt={a.name!} className="object-cover w-full h-full" />
 									</div>
 								) : (
 									<div className="aspect-video flex items-center justify-center bg-muted">
@@ -294,7 +344,7 @@ export default function SubmissionPage({ params }: { params: Promise<{ id: strin
 								<CardHeader className="p-3">
 									<CardTitle className="text-xs truncate">{a.name || a.kind}</CardTitle>
 									<CardDescription className="text-[10px]">
-										{a.mimeType} • {(a.size / 1024).toFixed(1)} KB
+										{a.mimeType} • {((a.size || 0) / 1024).toFixed(1)} KB
 									</CardDescription>
 								</CardHeader>
 								<CardContent className="p-3 pt-0">

@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { InferSelectModel, sql } from "drizzle-orm";
 import { blob, customType, index, int, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { WhoISInfo } from "../website_info";
 import { ResponseInputItem, ResponseOutputItem } from "openai/resources/responses/responses.mjs";
@@ -19,7 +19,7 @@ export type ReportStatus = (typeof reportStatus)[number];
 export type EmailSubmissionData = MailData;
 
 export type WebsiteSubmissionData = {
-	whois: WhoISInfo;
+	whois?: WhoISInfo;
 	url: string;
 };
 
@@ -64,6 +64,8 @@ export const submissions = sqliteTable(
 	]
 );
 
+export type Submission = InferSelectModel<typeof submissions>;
+
 /** Analyzer execution runs. */
 export const analysisRuns = sqliteTable(
 	"analysis_runs",
@@ -82,6 +84,8 @@ export const analysisRuns = sqliteTable(
 	},
 	(table) => []
 );
+
+export type AnalysisRun = InferSelectModel<typeof analysisRuns>;
 
 export const artifacts = sqliteTable(
 	"artifacts",
@@ -105,6 +109,8 @@ export const artifacts = sqliteTable(
 		uniqueIndex("artifacts_sha256_size_unique").on(table.sha256, table.size),
 	]
 );
+
+export type Artifact = InferSelectModel<typeof artifacts>;
 
 /** Outbound reports (draft/sent/failed). */
 export const reports = sqliteTable(
@@ -140,3 +146,5 @@ export const reports = sqliteTable(
 		index("reports_status_created_idx").on(table.status, table.createdAt),
 	]
 );
+
+export type Report = InferSelectModel<typeof reports>;

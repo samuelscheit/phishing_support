@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { analyzeWebsite } from "@/lib/website_ai";
 import { generateId } from "@/lib/db/ids";
 import { getUserCC, sleep } from "@/lib/utils";
+import { SubmissionsEntity } from "@/lib/db/entities";
 
 export const runtime = "nodejs";
 
@@ -16,9 +17,25 @@ export async function POST(req: NextRequest) {
 		const stream_id = generateId();
 
 		const user_country_code = await getUserCC(req);
-		analyzeWebsite(url, stream_id, user_country_code).catch(console.error);
 
-		await sleep(2000);
+		const uri = new URL(url);
+
+		// Create submission
+		const existingId = await SubmissionsEntity.create({
+			kind: "website",
+			data: { kind: "website", website: { url } },
+			dedupeKey: `website-${uri.hostname}`,
+			status: "new",
+			source: url,
+			id: stream_id,
+		});
+
+		if (existingId !== stream_id) {
+			// Already exists, return existing ID
+			return NextResponse.json({ stream_id: existingId });
+		}
+
+		analyzeWebsite(url, stream_id, user_country_code).catch(console.error);
 
 		return NextResponse.json({ stream_id });
 	} catch (err) {

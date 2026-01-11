@@ -31,7 +31,17 @@ export class SubmissionsEntity {
 		id?: bigint;
 	}) {
 		const id = params.id ?? generateId();
-		await db.delete(submissions).where(eq(submissions.dedupeKey, params.dedupeKey));
+
+		const exists = await db
+			.select({
+				id: submissions.id,
+			})
+			.from(submissions)
+			.where(eq(submissions.dedupeKey, params.dedupeKey))
+			.limit(1);
+		if (exists.length > 0) {
+			return exists[0].id;
+		}
 
 		const [row] = await db
 			.insert(submissions)

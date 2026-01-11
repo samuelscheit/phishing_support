@@ -21,34 +21,30 @@ function retry(fn: () => Promise<any>, retries: number = 3, delayMs: number = 20
 	});
 }
 
-export async function analyzeWebsite(url: string, stream_id?: bigint, user_country_code?: string): Promise<bigint> {
-	await emitStep(stream_id, "start", 0);
-	const uri = new URL(url);
-
-	await emitStep(stream_id, "whois_lookup", 5);
+export async function analyzeWebsite(url: string, submissionId: bigint, user_country_code?: string): Promise<bigint> {
+	await emitStep(submissionId, "whois_lookup", 5);
 	const whois = await getInfo(url);
 
-	await emitStep(stream_id, "create_submission", 10);
-
-	// Create submission
-	const submissionId = await SubmissionsEntity.create({
-		kind: "website",
-		data: { kind: "website", website: { url, whois } },
-		dedupeKey: `website-${uri.hostname}`,
-		status: "running",
-		source: url,
-		id: stream_id,
-	});
-
 	try {
-		await emitStep(stream_id, "archive_website", 25);
+		await SubmissionsEntity.update(submissionId, {
+			status: "running",
+			data: {
+				kind: "website",
+				website: {
+					url,
+					whois,
+				},
+			},
+		});
+
+		await emitStep(submissionId, "archive_website", 10);
 		const archive = await retry(() => archiveWebsite(url, user_country_code), 2, 3000);
-		await emitStep(stream_id, "save_artifacts", 40);
+		await emitStep(submissionId, "save_artifacts", 40);
 
 		// await ArtifactsEntity.saveWebsiteArtifacts({ submissionId, archive });
 		await ArtifactsEntity.saveWebsiteArtifacts({ submissionId, archive });
 
-		await emitStep(stream_id, "analysis_run", 55);
+		await emitStep(submissionId, "analysis_run", 45);
 
 		const { result: analysis } = await runStreamedAnalysisRun({
 			submissionId,
@@ -93,7 +89,7 @@ Use web search if necessary to gather more information about the content/brand. 
 			},
 		});
 
-		await emitStep(stream_id, "structured_response", 75);
+		await emitStep(submissionId, "structured_response", 75);
 		const { result: structuredResponse } = await runStreamedAnalysisRun({
 			submissionId,
 			options: {
@@ -131,7 +127,7 @@ Use web search if necessary to gather more information about the content/brand. 
 		const { phishing } = structuredResponse.output_parsed || ({} as { phishing: boolean });
 
 		if (phishing) {
-			await emitStep(stream_id, "reporting", 90);
+			await emitStep(submissionId, "reporting", 90);
 			await reportWebsitePhishing({
 				submissionId,
 				url,
@@ -143,7 +139,7 @@ Use web search if necessary to gather more information about the content/brand. 
 				},
 			});
 
-			await emitStep(stream_id, "reporting to Google Safe Browsing", 90);
+			await emitStep(submissionId, "reporting to Google Safe Browsing", 90);
 
 			await reportToGoogleSafeBrowsing({
 				url,
@@ -154,11 +150,11 @@ Use web search if necessary to gather more information about the content/brand. 
 			await markSubmissionInvalid(submissionId);
 		}
 
-		await emitStep(stream_id, "completed", 100);
+		await emitStep(submissionId, "completed", 100);
 	} catch (error) {
 		console.error("Website analysis failed:", error);
 		await SubmissionsEntity.update(submissionId, { status: "failed", info: String(error) });
-		await emitStep(stream_id, "failed", 100);
+		await emitStep(submissionId, "failed", 100);
 	}
 
 	return submissionId;

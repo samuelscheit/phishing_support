@@ -65,7 +65,7 @@ export function SubmissionForm() {
 		<Card className="w-full max-w-2xl mx-auto">
 			<CardHeader>
 				<CardTitle>Submit Phishing Threat</CardTitle>
-				<CardDescription>Submit a suspicious website URL or upload a phishing email (EML) for analysis.</CardDescription>
+				<CardDescription>Submit a suspicious website URL or email for analysis and to report it.</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<Tabs defaultValue="url" className="w-full">

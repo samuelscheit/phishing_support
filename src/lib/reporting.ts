@@ -8,6 +8,7 @@ import { MailData } from "./mail_ai";
 import { GoogleAuth } from "google-auth-library";
 // @ts-ignore
 import anticaptcha from "@antiadmin/anticaptchaofficial";
+import { sum, uniqBy } from "lodash";
 
 type ReportDraft = {
 	to: string;
@@ -69,16 +70,19 @@ async function generateReportDraft(params: {
 async function sendReportEmail(params: { submissionId: bigint; draft: ReportDraft; attachments?: ReportAttachment[]; data?: any }) {
 	const from = process.env.SMTP_FROM || "Phishing Support <report@phishing.support>";
 
-	// const mailSendResult = await mailer.sendMail({
-	// 	from,
-	// 	to: params.draft.to,
-	// 	subject: params.draft.subject,
-	// 	text: `${params.draft.body}\n\n`,
-	// 	attachments: params.attachments,
-	// });
-	const mailSendResult = {
-		messageId: "",
-	};
+	// TODO: update "to" to actual recipient
+
+	const mailSendResult = await mailer.sendMail({
+		from,
+		// to: params.draft.to,
+		to: "samuel.scheit@me.com",
+		subject: params.draft.subject,
+		text: `${params.draft.body}\n\n`,
+		attachments: params.attachments,
+	});
+	// const mailSendResult = {
+	// 	messageId: "",
+	// };
 
 	console.log("---- Report Email ----");
 	console.log("From:", from);
@@ -108,17 +112,24 @@ export async function reportWebsitePhishing(params: {
 	analysisText: string;
 	archive: { screenshotPng: Buffer; mhtml: Buffer };
 }) {
-	const system = `You are an expert phishing analyst. Draft a concise report to the abuse contact about a phishing website hosted on their infrastructure.
+	const generalNotes = `Write on behalf of "the team of phishing.support".
+Write to them if they need further information about this case; they can find it at https://phishing.support/submissions/${params.submissionId}
+Tone: professional and factual.`;
+
+	const ipAbuseEmails = params.whois.ip_rdaps.map((x) => {
+		if (!x.abuse?.email) return;
+
+		const system = `You are an expert phishing analyst. Draft a concise report to the abuse contact about a phishing website hosted on their ip space/server infrastructure.
 
 The report must include:
 1) A short summary of the phishing analysis.
-2) The phishing website URL and relevant WHOIS/RDAP/DNS/hosting details.
+2) The phishing website URL and relevant dns information to identify the infrastructure (A/AAAA records, ip).
 3) A clear request for investigation and takedown/mitigation.
 
-Write on behalf of "the team of https://phishing.support".
-Tone: professional and factual.`;
+${generalNotes}
+`;
 
-	const user = `Draft the report based on this analysis:
+		const user = `Draft the report based on this analysis:
 
 ${params.analysisText}
 
@@ -126,31 +137,83 @@ Phishing Website URL:
 ${params.url}
 
 WhoIS/DNS:
-${toon.encode(params.whois)}`;
+${toon.encode(params.whois)}
 
-	const draft = await generateReportDraft({
-		submissionId: params.submissionId,
-		system,
-		user,
+Contact the server provider of the IP address:
+${x.ip}
+The abuse contact is
+${toon.encode(x.abuse)}`;
+
+		return {
+			system,
+			user,
+			email: x.abuse.email,
+		};
 	});
 
-	await sendReportEmail({
-		submissionId: params.submissionId,
-		draft,
-		attachments: [
-			{
-				filename: "website.mhtml",
-				content: params.archive.mhtml,
-				contentType: "text/mhtml",
-			},
-			{
-				filename: "website.png",
-				content: params.archive.screenshotPng,
-				contentType: "image/png",
-			},
-		],
-		data: { url: params.url },
+	const domainAbuseEmails = [params.whois.rdap, params.whois.root_info?.rdap].map((x) => {
+		if (!x?.registrar?.abuse?.email) return;
+
+		const system = `You are an expert phishing analyst. Draft a concise report to the abuse contact of the domain registrar of the phishing website.
+
+The report must include:
+1) A short summary of the phishing analysis.
+2) The phishing website URL and relevant dns information to identify the infrastructure (DNS, registrar, registration date, etc).
+3) A request for investigation and takedown/mitigation.
+
+${generalNotes}`;
+
+		const user = `Draft the report based on this analysis:
+
+${params.analysisText}
+
+Phishing Website URL:
+${params.url}
+
+WhoIS/DNS:
+${toon.encode(params.whois)}
+
+Contact the domain registrar:
+${toon.encode(x.registrar)}
+`;
+
+		return {
+			system,
+			user,
+			email: x.registrar.abuse.email,
+		};
 	});
+
+	const promises = uniqBy(
+		[...ipAbuseEmails, ...domainAbuseEmails].filter((x) => x !== undefined),
+		(x) => x.email
+	).map(async ({ email, system, user }) => {
+		const draft = await generateReportDraft({
+			submissionId: params.submissionId,
+			system,
+			user,
+		});
+
+		await sendReportEmail({
+			submissionId: params.submissionId,
+			draft,
+			attachments: [
+				{
+					filename: "website.mhtml",
+					content: params.archive.mhtml,
+					contentType: "text/mhtml",
+				},
+				{
+					filename: "website.png",
+					content: params.archive.screenshotPng,
+					contentType: "image/png",
+				},
+			],
+			data: { url: params.url },
+		});
+	});
+
+	return Promise.allSettled(promises);
 }
 
 export async function reportEmailPhishing(params: { submissionId: bigint; mail: MailData; analysisText: string }) {

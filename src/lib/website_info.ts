@@ -2,6 +2,7 @@ import dns from "node:dns/promises";
 import uniqBy from "lodash/uniqBy";
 import uniq from "lodash/uniq";
 import { parse } from "tldts";
+import { recursiveAbuseContact } from "../web_lib/util";
 
 export async function queryDns(domain: string) {
 	const [a, aaaa, ns, mx, cname, txt] = await Promise.allSettled([
@@ -56,7 +57,7 @@ export type RDAPEntity = {
 	vcard?: RDAPVCard | null;
 };
 
-type RDAPAbuseContact = RDAPVCard & {
+export type RDAPAbuseContact = RDAPVCard & {
 	remarks: string;
 };
 
@@ -87,8 +88,11 @@ type RDAPDomainInfo = {
 	status: string[];
 	events: RDAPEventMap;
 	nameservers: string[];
-	secureDNS?: unknown;
-	registrar: RDAPEntity | null;
+	registrar:
+		| (RDAPEntity & {
+				abuse: RDAPAbuseContact | null;
+		  })
+		| null;
 };
 
 function parseVCard(vcardArray?: VCardArray): RDAPVCard | null {
@@ -113,6 +117,7 @@ function parseVCard(vcardArray?: VCardArray): RDAPVCard | null {
 }
 
 function simplifyEntity(entity: any): RDAPEntity {
+	if (!entity) return null as any;
 	const entities: RDAPEntity[] | null = entity.entities ? entity.entities.map(simplifyEntity) : null;
 
 	return {
@@ -168,7 +173,7 @@ async function queryIP(ip: string): Promise<RDAPIPInfo> {
 }
 
 function simplifyDomainRDAP(json: any, domain: string): RDAPDomainInfo {
-	const registrarEntity = (json.entities ?? []).find((entity: any) => entity.roles?.includes("registrar"));
+	const registrarEntity = simplifyEntity((json.entities ?? []).find((entity: any) => entity.roles?.includes("registrar")));
 	const events = (json.events ?? []).reduce((acc: Record<string, string>, event: any) => {
 		if (event?.eventAction && event?.eventDate) {
 			acc[event.eventAction] = event.eventDate;
@@ -181,27 +186,13 @@ function simplifyDomainRDAP(json: any, domain: string): RDAPDomainInfo {
 		status: json.status ?? [],
 		events,
 		nameservers: (json.nameservers ?? []).map((nameserver: any) => nameserver.ldhName).filter(Boolean),
-		secureDNS: json.secureDNS,
-		registrar: registrarEntity ? simplifyEntity(registrarEntity) : null,
+		registrar: registrarEntity
+			? {
+					...registrarEntity,
+					abuse: recursiveAbuseContact(registrarEntity),
+				}
+			: null,
 	};
-}
-
-function recursiveAbuseContact(entity: RDAPEntity, info = ""): RDAPAbuseContact | null {
-	if (entity.roles?.includes("abuse")) {
-		return {
-			...(entity.vcard ?? {}),
-			remarks: info + entity.remarks,
-		};
-	}
-
-	if (entity.entities) {
-		for (const child of entity.entities) {
-			const result = recursiveAbuseContact(child, info + entity.remarks);
-			if (result) return result;
-		}
-	}
-
-	return null;
 }
 
 function simplifyIP(json: any, ip: string): RDAPIPInfo {

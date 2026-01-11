@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "./ui/card";
+import { SubmissionStatus } from "../lib/db/schema";
 
 type ProgressState = {
 	step: string | null;
@@ -11,7 +12,11 @@ type ProgressState = {
 	error?: string;
 };
 
-export function AnalysisProgress({ streamId }: { streamId: string }) {
+export function AnalysisProgress({ streamId, status }: { streamId: string | bigint; status: SubmissionStatus }) {
+	if (status !== "new" && status !== "queued" && status !== "running") {
+		return null;
+	}
+
 	const [state, setState] = useState<ProgressState>({
 		step: null,
 		progress: null,

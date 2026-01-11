@@ -49,10 +49,14 @@ async function archiveWebsiteInternal(link: string, country_code?: string): Prom
 				return request.continue();
 			});
 
-			await page.goto(link, {
+			const response = await page.goto(link, {
 				waitUntil: "load",
 				timeout: 1000 * 120,
 			});
+
+			if (response && !response.ok()) {
+				throw new Error(`Failed to load page, status code: ${response.status()}`);
+			}
 
 			resolve();
 		} catch (err) {

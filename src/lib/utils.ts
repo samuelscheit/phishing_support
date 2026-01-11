@@ -426,7 +426,11 @@ export async function getUserCC(req: Request) {
 		const ip = req.headers.get("CF-Connecting-IP") || req.headers.get("x-forwarded-for");
 		if (!ip) throw new Error("No IP found");
 
+		console.log("Fetching country code for IP:", ip);
+
 		const response = await axios(`https://api.country.is/${ip}`);
+
+		console.log("Country code response:", response.data);
 		return response.data.country as string;
 	} catch (error) {}
 }

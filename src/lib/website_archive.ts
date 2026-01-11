@@ -119,6 +119,7 @@ export async function archiveWebsite(link: string, user_country_code?: string): 
 	try {
 		return await archiveWebsiteInternal(link, user_country_code);
 	} catch (err) {
+		console.warn(`First archive attempt failed for ${link} using country code ${user_country_code}: ${(err as Error).message}`);
 		return await archiveWebsiteInternal(link);
 	}
 }

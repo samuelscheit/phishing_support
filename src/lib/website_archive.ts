@@ -1,5 +1,6 @@
-import { getBrowser, getBrowserPage, pathSafeFilename } from "./utils";
+import { getBrowser, getBrowserPage, pathSafeFilename, sleep } from "./utils";
 import path from "node:path";
+import fs from "node:fs";
 
 export type ArchivedWebsiteResponse = {
 	name: string;
@@ -57,14 +58,24 @@ async function archiveWebsiteInternal(link: string, country_code?: string): Prom
 			});
 
 			await page.goto(link, {
-				waitUntil: "networkidle0",
+				waitUntil: "load",
 				timeout: 10000,
 			});
 
 			resolve();
 		} catch (err) {
+			let imagePath = path.join(__dirname, "..", "..", "data", `error_${pathSafeFilename(hostname)}.png`);
+
+			if (!fs.existsSync(path.dirname(imagePath))) {
+				imagePath = `/app/data/error_${pathSafeFilename(hostname)}.png`;
+
+				if (!fs.existsSync(path.dirname(imagePath))) {
+					imagePath = `${process.cwd()}/data/error_${pathSafeFilename(hostname)}.png`;
+				}
+			}
+
 			await page.screenshot({
-				path: path.join(__dirname, "..", "..", "data", `error_${pathSafeFilename(hostname)}.png`),
+				path: imagePath,
 				fullPage: true,
 				captureBeyondViewport: true,
 				type: "png",
@@ -73,6 +84,8 @@ async function archiveWebsiteInternal(link: string, country_code?: string): Prom
 			reject(err);
 		}
 	});
+
+	await sleep(1000 * 5); // wait for additional content to load
 
 	const screenshotPng = await page.screenshot({
 		fullPage: true,

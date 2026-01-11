@@ -17,7 +17,10 @@ await p.authenticate({
 
 const page = await getBrowserPage(p);
 
-await page.goto("https://saewar.com/De56Mgw1A");
+await page.goto("https://saewar.com/De56Mgw1A", {
+	waitUntil: "load",
+});
+
 // await page.goto("https://ipapi.co/json/");
 // https://saewar.com/De56Mgw1A
 
@@ -30,6 +33,8 @@ fs.mkdirSync(dirname(imagepath), { recursive: true });
 // await page.waitForSelector(".container-fluid", { visible: true });
 
 await page.screenshot({ path: imagepath, captureBeyondViewport: true, fullPage: true });
+
+console.log("done");
 
 // await page.close();
 

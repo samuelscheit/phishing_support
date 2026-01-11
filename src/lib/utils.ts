@@ -164,6 +164,24 @@ export async function getBrowserPage(p?: Page) {
 	const page = p || (await browser.newPage());
 	let cloudflareWait = new DeferredPromise<void>();
 
+	await page.setUserAgent(
+		`Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36`,
+		{
+			architecture: "x86",
+			mobile: false,
+			model: "",
+			platform: "MacIntel",
+			platformVersion: "10_15_7",
+		}
+	);
+
+	await page.goto("https://httpbin.io/user-agent");
+
+	// Get the text content of the page's body
+	const content = await page.evaluate(() => document.body.textContent);
+
+	console.log("User-Agent page content:", content);
+
 	const waitForCloudflare = async (frame: Frame, page: Page) => {
 		const source = page.url();
 

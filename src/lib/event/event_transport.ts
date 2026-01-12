@@ -15,7 +15,7 @@ async function getTransportImpl() {
 }
 
 export async function publishEvent(topic: string, data: unknown) {
-	console.log("Publishing event", topic, data);
+	// console.log("Publishing event", topic, data);
 	// console.log("Publishing event", topic, data);
 	const { publishEvent: transportPublishEvent } = await getTransportImpl();
 	return transportPublishEvent(topic, data);

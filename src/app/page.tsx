@@ -1,5 +1,11 @@
 import { SubmissionForm } from "@/components/SubmissionForm";
 import { SubmissionsList } from "@/components/SubmissionsList";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+	title: "Phishing Support",
+	description: "Automated analysis and reporting of phishing threats.",
+};
 
 export default function Home() {
 	return (

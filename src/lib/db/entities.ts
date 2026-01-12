@@ -35,12 +35,18 @@ export class SubmissionsEntity {
 		const exists = await db
 			.select({
 				id: submissions.id,
+				status: submissions.status,
 			})
 			.from(submissions)
 			.where(eq(submissions.dedupeKey, params.dedupeKey))
 			.limit(1);
+
 		if (exists.length > 0) {
-			return exists[0].id;
+			if (exists[0].status === "failed") {
+				await db.delete(submissions).where(eq(submissions.id, exists[0].id));
+			} else {
+				return exists[0].id;
+			}
 		}
 
 		const [row] = await db
@@ -182,6 +188,7 @@ export class ArtifactsEntity {
 				mimeType: artifacts.mimeType,
 				size: artifacts.size,
 				createdAt: artifacts.createdAt,
+				sha256: artifacts.sha256,
 			})
 			.from(artifacts)
 			.where(eq(artifacts.submissionId, submissionId));
@@ -204,7 +211,11 @@ export class ArtifactsEntity {
 			text: Buffer;
 		};
 	}) {
-		const [screenshotId, mhtmlId, htmlId, textId] = await Promise.all([
+		const [
+			screenshotId,
+			mhtmlId,
+			// htmlId, textId
+		] = await Promise.all([
 			this.saveBuffer({
 				submissionId: submissionId,
 				name: `website.png`,
@@ -219,23 +230,27 @@ export class ArtifactsEntity {
 				mimeType: "text/mhtml",
 				buffer: archive.mhtml,
 			}),
-			this.saveBuffer({
-				submissionId: submissionId,
-				name: `website.html`,
-				kind: "website_html",
-				mimeType: "text/html",
-				buffer: archive.html,
-			}),
-			this.saveBuffer({
-				submissionId: submissionId,
-				name: `website.txt`,
-				kind: "website_text",
-				mimeType: "text/plain",
-				buffer: archive.text,
-			}),
+			// this.saveBuffer({
+			// 	submissionId: submissionId,
+			// 	name: `website.html`,
+			// 	kind: "website_html",
+			// 	mimeType: "text/html",
+			// 	buffer: archive.html,
+			// }),
+			// this.saveBuffer({
+			// 	submissionId: submissionId,
+			// 	name: `website.txt`,
+			// 	kind: "website_text",
+			// 	mimeType: "text/plain",
+			// 	buffer: archive.text,
+			// }),
 		]);
 
-		return { screenshotId, mhtmlId, htmlId, textId };
+		return {
+			screenshotId,
+			mhtmlId,
+			// htmlId, textId
+		};
 	}
 }
 

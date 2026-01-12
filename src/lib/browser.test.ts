@@ -8,7 +8,7 @@ process.env["DEBUG_MAX_STRING_LENGTH"] = "null";
 const browser = await getBrowser();
 
 const context = await browser.createBrowserContext({
-	proxyServer: `http://109.199.115.133:3128`,
+	proxyServer: process.env.PROXY_URL_NO_AUTH,
 });
 
 const p = await context.newPage();

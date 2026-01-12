@@ -4,7 +4,7 @@ import { SubmissionsEntity, ArtifactsEntity } from "./db/entities";
 import { getInfo } from "./website_info";
 import { runStreamedAnalysisRun } from "./analysis_run";
 import { publishEvent } from "./event/event_transport";
-import { markSubmissionInvalid, reportToGoogleSafeBrowsing, reportWebsitePhishing } from "./reporting";
+import { markSubmissionInvalid, reportToGoogleSafeBrowsing, reportWebsitePhishing } from "./report";
 
 export async function emitStep(streamId: bigint | string | undefined, step: string, progress: number) {
 	if (!streamId) return;
@@ -22,10 +22,10 @@ function retry(fn: () => Promise<any>, retries: number = 3, delayMs: number = 20
 }
 
 export async function analyzeWebsite(url: string, submissionId: bigint, user_country_code?: string): Promise<bigint> {
-	await emitStep(submissionId, "whois_lookup", 5);
-	const whois = await getInfo(url);
-
 	try {
+		await emitStep(submissionId, "whois_lookup", 5);
+		const whois = await getInfo(url);
+
 		await SubmissionsEntity.update(submissionId, {
 			status: "running",
 			data: {
@@ -69,7 +69,7 @@ ${archive.text.toString()}
 Here is the website raw html skeleton:
 ${archive.html.toString()}
 
-Please provide a detailed analysis of the website, including any content and identifiying features, also if its trying to impersonate another brand or service.
+Please provide a detailed phishing analysis of the website (e.g. if its trying to impersonate another brand or service).
 Use web search if necessary to gather more information about the content/brand. (the website might be new and doesn't have any web results yet). (also you might not be able to access the website directly use the provided website text and screenshot).`,
 							},
 							{

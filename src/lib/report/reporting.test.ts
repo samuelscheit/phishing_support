@@ -1,4 +1,4 @@
-import { reportToGoogleSafeBrowsing } from "./reporting";
+import { reportToGoogleSafeBrowsing } from "./util";
 
 const result = await reportToGoogleSafeBrowsing({
 	url: "https://saewar.com/De56Mgw1A",

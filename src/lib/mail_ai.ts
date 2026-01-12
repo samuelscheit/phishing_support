@@ -5,7 +5,7 @@ import { simpleParser } from "mailparser";
 import { analyzeHeaders, getAddressesText } from "./mail";
 import { getInfo } from "./website_info";
 import * as toon from "@toon-format/toon";
-import { markSubmissionInvalid, reportEmailPhishing } from "./reporting";
+import { markSubmissionInvalid, reportEmailPhishing } from "./report";
 
 async function emitStep(streamId: bigint | string | undefined, step: string, progress: number) {
 	if (!streamId) return;

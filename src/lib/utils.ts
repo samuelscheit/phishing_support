@@ -78,7 +78,6 @@ export async function getBrowser() {
 		},
 		acceptInsecureCerts: true,
 		dumpio: true,
-		slowMo: 25,
 	});
 
 	return browserPromise;
@@ -166,7 +165,7 @@ export async function getBrowserPage(p?: Page, proxy_country_code?: string) {
 	const browser = await getBrowser();
 
 	const context = await browser.createBrowserContext({
-		proxyServer: proxy_country_code ? `http://109.199.115.133:3128` : undefined,
+		proxyServer: proxy_country_code ? process.env.PROXY_URL_NO_AUTH : undefined,
 	});
 
 	const page = p || (await context.newPage());
@@ -452,8 +451,8 @@ export const model = new OpenAI({
 	baseURL: process.env.OPENAI_API_BASE_URL || "https://api.openai.com/v1",
 	// fetch,
 	fetchOptions: {
-		agent: new HttpProxyAgent("http://any:any@109.199.115.133:3128"),
-		proxy: `http://any:any@109.199.115.133:3128`,
+		agent: new HttpProxyAgent(process.env.PROXY_URL!),
+		proxy: process.env.PROXY_URL,
 	},
 });
 

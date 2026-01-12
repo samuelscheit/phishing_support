@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExternalLink, Mail, Globe, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { AnalysisRun, Artifact, Report, Submission } from "@/lib/db/schema";
+import { cn } from "../../../web_lib/util";
 
 type SubmissionDetail = Submission & {
 	analysisRuns: AnalysisRun[];
@@ -34,7 +35,7 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 	const isReported = statusKey === "reported";
 
 	const isRunning = ["new", "queued", "running"].includes(statusKey);
-	const runsToShow = submission ? (isRunning ? submission.analysisRuns : submission.analysisRuns.slice(0, 1)) : [];
+	const runsToShow = submission?.analysisRuns.slice(0, 1) || [];
 
 	const defaultTab = "runs";
 
@@ -220,9 +221,9 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 				</div>
 			</div>
 
-			<div className="grid gap-6 md:grid-cols-12">
-				<Card className="md:col-span-8">
-					<CardHeader className="pb-4">
+			<div className="grid gap-6 items-stretch pt-4 md:grid-cols-12">
+				<div className="col-span-8 h-full flex flex-col ">
+					<div className="pb-4">
 						<div className="flex justify-between items-center gap-0">
 							<CardTitle className="flex flex-row items-center gap-2 min-w-0">
 								{submission.kind === "website" ? (
@@ -246,8 +247,8 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 								<SubmissionStatus status={submission.status} />
 							</div>
 						</div>
-					</CardHeader>
-					<CardContent className="space-y-5">
+					</div>
+					<div className="space-y-5 flex-1 justify-between flex-col flex">
 						{isReported && submission.data.kind === "website" ? (
 							<div className="rounded-md border bg-destructive/10 p-3">
 								<div className="flex items-center gap-2 text-xs font-semibold text-destructive">
@@ -320,18 +321,22 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 								</div>
 							</div>
 						)}
-					</CardContent>
-				</Card>
+					</div>
+				</div>
 
-				<div className="md:col-span-4">
+				<div className="col-span-4 flex">
 					{screenshot ? (
-						<Card className="overflow-hidden">
-							<div className="aspect-video bg-muted overflow-hidden">
-								<img src={`/api/artifacts/${screenshot.id}`} alt="website.png" className="object-cover w-full h-full" />
+						<Card className="overflow-hidden h-full w-full border-none shadow-none">
+							<div className="bg-muted overflow-hidden h-full flex relative">
+								<img
+									src={`/api/artifacts/${screenshot.id}`}
+									alt="website.png"
+									className="absolute object-contain w-full h-full"
+								/>
 							</div>
 						</Card>
 					) : isFailed && submission.info ? (
-						<Card>
+						<Card className="h-full w-full border-none shadow-none">
 							<CardHeader>
 								<CardTitle>Error</CardTitle>
 							</CardHeader>
@@ -450,17 +455,17 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 
 					{runsToShow.length > 0 ? (
 						runsToShow.map((run: any) => (
-							<Card key={run.id} className={isRunning ? "overflow-hidden" : "overflow-hidden flex flex-col h-[90vh]"}>
-								<CardHeader className="bg-muted/50 py-3 shrink-0">
+							<div key={run.id} className={isRunning ? "overflow-hidden" : "overflow-hidden flex flex-col h-[90vh]"}>
+								<div className="bg-muted/50 py-3 shrink-0">
 									<div className="flex justify-between items-center">
-										<CardTitle className="text-sm font-mono uppercase">Run #{run.id}</CardTitle>
+										<CardTitle className="text-sm font-mono uppercase">AI Analysis</CardTitle>
 										<Badge variant={run.status === "completed" ? "default" : "outline"}>{run.status}</Badge>
 									</div>
-								</CardHeader>
-								<CardContent className={isRunning ? "p-0" : "p-0 flex-1 min-h-0"}>
+								</div>
+								<div className={cn(isRunning ? "p-0" : "p-0 flex-1 min-h-0", "pt-2")}>
 									<AnalysisLogs streamId={run.id} output={run.output} className={isRunning ? undefined : "h-full"} />
-								</CardContent>
-							</Card>
+								</div>
+							</div>
 						))
 					) : (
 						<div className="text-center py-10 text-muted-foreground">No analysis runs yet.</div>

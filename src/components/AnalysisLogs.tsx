@@ -143,7 +143,7 @@ export function AnalysisLogs({ streamId, output, className }: { streamId: string
 	}, [markdown]);
 
 	return (
-		<ScrollArea className={cn("w-full p-4", className ?? "h-96")}>
+		<ScrollArea className={cn("w-full", className ?? "h-96")}>
 			<div className="space-y-3">
 				{markdown ? (
 					<MessageResponse isAnimating={!outputText}>{markdown}</MessageResponse>

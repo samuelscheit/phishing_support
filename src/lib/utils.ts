@@ -138,15 +138,18 @@ if (smtpSecure && smtpPort === 587) {
 	console.warn("SMTP_SECURE=true with port 587 can cause TLS errors; use SMTP_SECURE=false for STARTTLS.");
 }
 
-export const mailer = nodemailer.createTransport({
-	host: smtpHost,
-	port: smtpPort,
-	secure: smtpSecure,
-	auth: {
-		user: smtpUser,
-		pass: smtpPass,
-	},
-});
+export const mailer =
+	smtpHost && smtpPort && smtpUser && smtpPass
+		? nodemailer.createTransport({
+				host: smtpHost,
+				port: smtpPort,
+				secure: smtpSecure,
+				auth: {
+					user: smtpUser,
+					pass: smtpPass,
+				},
+			})
+		: undefined;
 
 export const max_output_tokens = 30000;
 

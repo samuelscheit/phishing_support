@@ -77,9 +77,9 @@ export function AnalysisProgress({ streamId, status }: { streamId: string | bigi
 					: "Stream error";
 
 	return (
-		<Card className="p-4 space-y-2 ">
+		<div className="p-4 space-y-2 ">
 			<div className="text-sm font-semibold font-mono uppercase">{stepLabel}</div>
 			<Progress value={value} />
-		</Card>
+		</div>
 	);
 }

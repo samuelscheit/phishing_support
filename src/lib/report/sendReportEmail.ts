@@ -11,7 +11,7 @@ type ReportAttachment = {
 export async function sendReportEmail(params: { submissionId: bigint; draft: ReportDraft; attachments?: ReportAttachment[]; data?: any }) {
 	const from = process.env.SMTP_FROM || "Phishing Support <report@phishing.support>";
 
-	const mailSendResult = await mailer.sendMail({
+	const mailSendResult = await mailer?.sendMail({
 		from,
 		to: params.draft.to,
 		subject: params.draft.subject,
@@ -34,7 +34,7 @@ export async function sendReportEmail(params: { submissionId: bigint; draft: Rep
 		to: params.draft.to,
 		subject: params.draft.subject,
 		body: params.draft.body,
-		providerMessageId: mailSendResult.messageId,
+		providerMessageId: mailSendResult?.messageId,
 	});
 
 	await SubmissionsEntity.update(params.submissionId, { status: "reported" });

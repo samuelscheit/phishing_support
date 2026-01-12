@@ -28,7 +28,7 @@ export async function runStreamedAnalysisRun(params: { submissionId: bigint; opt
 
 		throw err;
 	}
-	// const result = (await logAndPersistStream(stream, runId, [runId, params.streamId])) as TFinal;
-	const result = await logAndPersistStream(stream, runId);
+	const result = await logAndPersistStream(stream, runId, [runId, params.submissionId]);
+	// const result = await logAndPersistStream(stream, runId);
 	return { runId, result };
 }

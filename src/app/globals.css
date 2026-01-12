@@ -163,3 +163,7 @@ button {
   word-break: break-word;
   hyphens: auto;
 }
+
+div[data-radix-scroll-area-viewport]>div {
+  display: block !important;
+}

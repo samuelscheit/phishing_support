@@ -184,7 +184,7 @@ ${toon.encode({ ...mail, eml: undefined })}`,
 					`Your ${abuseReplyName} Team`,
 				].join("\n");
 
-				await mailer.sendMail({ from, to, subject, text: body });
+				await mailer?.sendMail({ from, to, subject, text: body });
 			}
 		} catch (err) {
 			console.error("Failed to send reporter notification email:", err);

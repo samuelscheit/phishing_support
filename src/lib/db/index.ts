@@ -14,8 +14,6 @@ config({
 	quiet: true,
 });
 
-console.log("Using DB file:", process.env.DB_FILE_NAME);
-
 export const db = drizzle(
 	new Database(process.env.DB_FILE_NAME!, {
 		safeIntegers: true,

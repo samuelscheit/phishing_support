@@ -10,6 +10,7 @@ services:
             DB_FILE_NAME: /app/data/phishing_reporter.sqlite
 
             DOCKER: "true"
+            NEXT_PUBLIC_SITE_URL: https://phishing.support
 
             # Set these via your deployment environment / secrets manager
             # OPENAI_API_KEY: ""

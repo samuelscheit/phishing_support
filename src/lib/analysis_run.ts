@@ -4,6 +4,7 @@ import { AnalysisRunsEntity } from "./db/entities";
 import { logAndPersistStream } from "./artifact";
 import { model } from "./utils";
 import { publishEvent } from "./event/event_transport";
+import { retry } from "./website_ai";
 
 export async function runStreamedAnalysisRun(params: { submissionId: bigint; options: ResponseCreateParamsStreaming }) {
 	if (params.options.stream !== true) {
@@ -20,7 +21,7 @@ export async function runStreamedAnalysisRun(params: { submissionId: bigint; opt
 
 	try {
 		params.options.stream = true;
-		var stream = await model.responses.create(params.options);
+		var stream = await retry(() => model.responses.create(params.options), 1, 2000);
 	} catch (err) {
 		console.dir(params.options, { depth: null });
 		console.dir(err, { depth: null });

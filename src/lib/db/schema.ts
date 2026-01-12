@@ -23,7 +23,7 @@ export type WebsiteSubmissionData = {
 	url: string;
 };
 
-export type SubmissionData = { kind: "email"; email: EmailSubmissionData } | { kind: "website"; website: WebsiteSubmissionData };
+export type SubmissionData = { kind: "email"; email?: EmailSubmissionData } | { kind: "website"; website: WebsiteSubmissionData };
 
 const bignum = customType<{ data: bigint; driverData: bigint }>({
 	dataType: () => "INTEGER",
@@ -61,6 +61,7 @@ export const submissions = sqliteTable(
 		uniqueIndex("submissions_dedupe_key_unique").on(table.dedupeKey),
 		index("submissions_kind_received_at_idx").on(table.kind),
 		index("submissions_status_received_at_idx").on(table.status),
+		index("submissions_source_idx").on(table.source),
 	]
 );
 

@@ -26,6 +26,8 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 	const [loading, setLoading] = useState(initialSubmission ? false : true);
 	const [websiteHtml, setWebsiteHtml] = useState<string | null>(null);
 	const [websiteHtmlError, setWebsiteHtmlError] = useState<string | null>(null);
+	const [emailHtml, setEmailHtml] = useState<string | null>(null);
+	const [emailHtmlError, setEmailHtmlError] = useState<string | null>(null);
 
 	const statusKey = (submission?.status || "").toLowerCase();
 	const isFailed = statusKey === "failed";
@@ -56,7 +58,49 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 	const websiteMhtml = submission?.artifacts?.find(
 		(a) => (a.name || "").toLowerCase() === "website.mhtml" || (a.mimeType || "").toLowerCase() === "text/mhtml"
 	);
+	const emailEml = submission?.artifacts?.find((a) => {
+		const name = (a.name || "").toLowerCase();
+		const mime = (a.mimeType || "").toLowerCase();
+		const kind = (a.kind || "").toLowerCase();
+		return name.endsWith(".eml") || name === "mail.eml" || mime === "message/rfc822" || kind === "eml";
+	});
 	const artifacts = submission?.artifacts.filter((x) => x !== websiteScreenshot) || [];
+
+	const sanitizeHtmlForIframe = (rawHtml: string): string => {
+		try {
+			const parser = new DOMParser();
+			const doc = parser.parseFromString(rawHtml, "text/html");
+
+			// Remove active/embedding content.
+			// doc.querySelectorAll("script, iframe, frame, object, embed, link[rel='preload'], link[rel='modulepreload']").forEach((el) =>
+			// 	el.remove()
+			// );
+
+			// // Remove inline event handlers and block remote loads.
+			// doc.querySelectorAll("*").forEach((el) => {
+			// 	// strip on* handlers
+			// 	[...el.attributes].forEach((attr) => {
+			// 		if (attr.name.toLowerCase().startsWith("on")) el.removeAttribute(attr.name);
+			// 	});
+
+			// 	if (el instanceof HTMLAnchorElement) {
+			// 		const href = el.getAttribute("href") || "";
+			// 		if (/^(https?:)?\/\//i.test(href)) el.removeAttribute("href");
+			// 	}
+
+			// 	if (el instanceof HTMLImageElement) {
+			// 		const src = el.getAttribute("src") || "";
+			// 		// Avoid fetching remote images (tracking pixels etc.).
+			// 		if (/^(https?:)?\/\//i.test(src)) el.removeAttribute("src");
+			// 	}
+			// });
+
+			// Wrap in a minimal doc to keep email styles from leaking.
+			return `<!doctype html><html><head><meta charset="utf-8" /><meta name="referrer" content="no-referrer" /></head><body>${doc.body.innerHTML}</body></html>`;
+		} catch {
+			return rawHtml;
+		}
+	};
 
 	useEffect(() => {
 		const fetchDetail = async () => {
@@ -109,6 +153,55 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 			cancelled = true;
 		};
 	}, [submission?.kind, websiteMhtml?.id]);
+
+	useEffect(() => {
+		let cancelled = false;
+		const renderEmail = async () => {
+			setEmailHtml(null);
+			setEmailHtmlError(null);
+			if (submission?.kind !== "email") return;
+			if (!emailEml?.id) {
+				setEmailHtmlError("No email (.eml) artifact found.");
+				return;
+			}
+
+			try {
+				const res = await fetch(`/api/artifacts/${emailEml.id}`);
+				if (!res.ok) throw new Error(`Failed to fetch EML: ${res.status}`);
+				const bytes = new Uint8Array(await res.arrayBuffer());
+
+				const { default: PostalMime } = await import("postal-mime");
+				const parser = new PostalMime();
+				const parsed: any = await parser.parse(bytes);
+
+				const raw =
+					(parsed?.html as string | undefined) ||
+					(typeof parsed?.text === "string" && parsed.text.trim().length > 0
+						? `<!doctype html><html><head><meta charset="utf-8" /></head><body><pre style="white-space:pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">${parsed.text
+								.replace(/&/g, "&amp;")
+								.replace(/</g, "&lt;")
+								.replace(/>/g, "&gt;")}</pre></body></html>`
+						: "");
+
+				if (!raw) {
+					throw new Error("No HTML/text content in EML");
+				}
+
+				const safe = sanitizeHtmlForIframe(raw);
+				if (cancelled) return;
+				setEmailHtml(safe);
+			} catch (err) {
+				console.error("Failed to render email:", err);
+				if (cancelled) return;
+				setEmailHtmlError("Failed to render email.");
+			}
+		};
+
+		renderEmail();
+		return () => {
+			cancelled = true;
+		};
+	}, [submission?.kind, emailEml?.id]);
 
 	if (loading && !submission) return <div className="p-10 text-center">Loading...</div>;
 	if (!submission) return <div className="p-10 text-center">Submission not found</div>;
@@ -251,6 +344,7 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 			<Tabs defaultValue={defaultTab} className="w-full">
 				<TabsList>
 					{submission.kind === "website" ? <TabsTrigger value="website">Website</TabsTrigger> : null}
+					{submission.kind === "email" ? <TabsTrigger value="email">Email</TabsTrigger> : null}
 					<TabsTrigger value="reports">Reports ({submission.reports.length})</TabsTrigger>
 					<TabsTrigger value="artifacts">Files ({artifacts.length})</TabsTrigger>
 					<TabsTrigger value="runs">Analysis</TabsTrigger>
@@ -277,6 +371,40 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 									<iframe
 										title="Archived Website"
 										srcDoc={websiteHtml}
+										className="w-full h-[75vh] bg-background"
+										sandbox=""
+										referrerPolicy="no-referrer"
+									/>
+								) : (
+									<div className="p-4 text-sm text-muted-foreground">Rendering…</div>
+								)}
+							</CardContent>
+						</Card>
+					</TabsContent>
+				) : null}
+				{submission.kind === "email" && emailEml ? (
+					<TabsContent value="email" className="space-y-4 mt-4">
+						<Card className="overflow-hidden">
+							<CardHeader className="py-3">
+								<CardTitle className="text-sm flex flex-row items-center gap-2">
+									Archived Email
+									<div className="text-xs text-muted-foreground font-normal">
+										(from {format(new Date(emailEml.createdAt), "PPP p")})
+									</div>
+								</CardTitle>
+								<CardDescription className="text-xs flex flex-row gap-8">
+									<div className="text-zinc-500 font-semibold font-mono">
+										DO NOT CLICK ANY LINKS NOR ENTER ANY SENSITIVE INFORMATION
+									</div>
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="p-0">
+								{emailHtmlError ? (
+									<div className="p-4 text-sm text-muted-foreground">{emailHtmlError}</div>
+								) : emailHtml ? (
+									<iframe
+										title="Archived Email"
+										srcDoc={emailHtml}
 										className="w-full h-[75vh] bg-background"
 										sandbox=""
 										referrerPolicy="no-referrer"

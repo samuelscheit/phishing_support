@@ -30,6 +30,7 @@ export async function parseMail(eml: string) {
 			.replaceAll(/(\r?\n)+/g, "\n")
 			.replaceAll(/\n/g, " ")
 			.trim(),
+		html: parsedMail.html || "",
 		headers: {
 			...headers,
 			routing: {
@@ -46,17 +47,9 @@ export async function analyzeMail(emlContent: string, stream_id: bigint) {
 	try {
 		const mail = await parseMail(emlContent);
 
-		// Create submission
-		const submissionId = await SubmissionsEntity.create({
-			kind: "email",
-			data: { kind: "email", email: mail },
-			dedupeKey: `${mail.from}`,
-			id: stream_id,
-		});
-
 		// Save EML artifact
 		await ArtifactsEntity.saveBuffer({
-			submissionId,
+			submissionId: stream_id,
 			name: "mail.eml",
 			kind: "eml",
 			mimeType: "message/rfc822",
@@ -64,12 +57,12 @@ export async function analyzeMail(emlContent: string, stream_id: bigint) {
 		});
 
 		await emitStep(stream_id, "start", 0);
-		await SubmissionsEntity.update(submissionId, { status: "running" });
+		await SubmissionsEntity.update(stream_id, { status: "running", data: { kind: "email", email: mail } });
 
 		await emitStep(stream_id, "analysis_run", 30);
 
 		const { result: analysis } = await runStreamedAnalysisRun({
-			submissionId,
+			submissionId: stream_id,
 			options: {
 				model: "gpt-5.2",
 				input: [
@@ -111,7 +104,7 @@ ${toon.encode({ ...mail, eml: undefined })}`,
 		await emitStep(stream_id, "structured_response", 70);
 
 		const { result: structuredResponse } = await runStreamedAnalysisRun({
-			submissionId,
+			submissionId: stream_id,
 			options: {
 				stream: true,
 				model: "gpt-5.2",
@@ -148,12 +141,12 @@ ${toon.encode({ ...mail, eml: undefined })}`,
 		if (phishing) {
 			await emitStep(stream_id, "reporting", 90);
 			await reportEmailPhishing({
-				submissionId,
+				submissionId: stream_id,
 				mail,
 				analysisText: analysis.output_text,
 			});
 		} else {
-			await markSubmissionInvalid(submissionId);
+			await markSubmissionInvalid(stream_id);
 		}
 
 		await emitStep(stream_id, "completed", 100);

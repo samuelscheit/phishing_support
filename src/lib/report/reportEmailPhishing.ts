@@ -2,8 +2,18 @@ import * as toon from "@toon-format/toon";
 import { MailData } from "../mail_ai";
 import { generateReportDraft } from "./generateReportDraft";
 import { sendReportEmail } from "./sendReportEmail";
+import { getMailLinks } from "../mail";
+import { createWebsiteSubmission } from "../../app/api/submissions/website/route";
 
 export async function reportEmailPhishing(params: { submissionId: bigint; mail: MailData; analysisText: string }) {
+	try {
+		getMailLinks(params.mail).forEach((link) => {
+			createWebsiteSubmission(link.href, undefined, `email:${params.submissionId.toString()}`).catch(console.error);
+		});
+	} catch (error) {
+		console.error("Error extracting mail links:", error);
+	}
+
 	const system = `You are an expert email phishing analyst. Draft a concise report to the abuse contact of the sending IP's owner, reporting a phishing email that originated from their infrastructure.
 
 The report must include:
@@ -12,7 +22,8 @@ The report must include:
 3) A request for investigation and mitigation.
 
 The original phishing email with full headers will be attached.
-Write on behalf of "the team of https://phishing.support".
+Write on behalf of "the team of phishing.support".
+Write to them if they need further information about this case; they can find it at https://phishing.support/submissions/${params.submissionId}
 Tone: professional and factual.`;
 
 	const user = `Draft the report based on this analysis:

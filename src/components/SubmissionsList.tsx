@@ -54,7 +54,7 @@ export function SubmissionsList() {
 								</span>
 							</div>
 							<CardTitle className="text-lg line-clamp-1">
-								{s.data?.kind === "email" ? s.data.email.subject : s.data.website.url}
+								{s.data?.kind === "email" ? s.data.email?.subject || s.dedupeKey : s.data.website.url}
 							</CardTitle>
 						</CardContent>
 					</Card>

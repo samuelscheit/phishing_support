@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 
-import { eq, sql } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 
 import { db } from "./index";
 import {
@@ -85,6 +85,19 @@ export class SubmissionsEntity {
 	static async get(id: bigint) {
 		const [row] = await db.select().from(submissions).where(eq(submissions.id, id));
 		return row;
+	}
+
+	/**
+	 * Finds a submission created from a given source.
+	 * Useful for sources like `imap:<uid>` that may also create derived submissions like `imap:<uid>:att1`.
+	 */
+	static async findIdBySourcePrefix(sourcePrefix: string): Promise<bigint | undefined> {
+		const [row] = await db
+			.select({ id: submissions.id })
+			.from(submissions)
+			.where(or(eq(submissions.source, sourcePrefix), sql`${submissions.source} like ${sourcePrefix + ":%"}`))
+			.limit(1);
+		return row?.id;
 	}
 }
 

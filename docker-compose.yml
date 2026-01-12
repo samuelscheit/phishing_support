@@ -18,6 +18,7 @@ services:
             # SMTP_PORT: "587"
             # SMTP_USER: ""
             # SMTP_PASS: ""
+
         volumes:
             - phishing_reporter_data:/app/data
         restart: unless-stopped

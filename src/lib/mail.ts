@@ -8,6 +8,7 @@ import { tmpdir } from "os";
 import { getBrowser, getBrowserPage } from "./browser/";
 import is_ip_private from "private-ip";
 import { analyzeSMTPHeadersFromRaw } from "@bernierllc/smtp-analyzer";
+import { MailData } from "./mail_ai";
 
 export function getAddressesText(obj: AddressObject[] | AddressObject | undefined): string {
 	if (!obj) return "";
@@ -35,7 +36,7 @@ function getAddressText(obj: AddressObject | undefined): string {
 	return text.trim();
 }
 
-export function getMailLinks(result: Awaited<ReturnType<typeof simpleParser>>) {
+export function getMailLinks(result: MailData) {
 	try {
 		if (!result.html) throw new Error("No HTML content found");
 

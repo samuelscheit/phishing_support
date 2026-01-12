@@ -150,14 +150,18 @@ export const mailer = nodemailer.createTransport({
 
 export const max_output_tokens = 30000;
 
+const { PROXY_URL } = process.env;
+
 export const model = new OpenAI({
 	apiKey: process.env.OPENAI_API_KEY ?? "",
 	baseURL: process.env.OPENAI_API_BASE_URL || "https://api.openai.com/v1",
 	// fetch,
-	fetchOptions: {
-		agent: new HttpProxyAgent(process.env.PROXY_URL!),
-		proxy: process.env.PROXY_URL,
-	},
+	fetchOptions: PROXY_URL
+		? {
+				agent: new HttpProxyAgent(PROXY_URL!),
+				proxy: PROXY_URL,
+			}
+		: undefined,
 });
 
 export async function getUserCC(req: Request) {

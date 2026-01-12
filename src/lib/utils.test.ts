@@ -1,6 +1,6 @@
 import { dirname, join } from "node:path";
 import fs from "node:fs";
-import { getBrowser, getBrowserPage, model } from "./utils";
+import { model } from "./utils";
 
 const response = await model.completions.create({
 	model: "gpt-5.2",

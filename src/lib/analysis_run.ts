@@ -23,6 +23,7 @@ export async function runStreamedAnalysisRun(params: { submissionId: bigint; opt
 		var stream = await model.responses.create(params.options);
 	} catch (err) {
 		console.dir(params.options, { depth: null });
+		console.dir(err, { depth: null });
 
 		throw err;
 	}

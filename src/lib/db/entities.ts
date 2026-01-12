@@ -109,7 +109,11 @@ export class AnalysisRunsEntity {
 	}
 
 	static async listForSubmission(submissionId: bigint) {
-		const result = await db.select().from(analysisRuns).where(eq(analysisRuns.submissionId, submissionId));
+		const result = await db
+			.select()
+			.from(analysisRuns)
+			.orderBy(analysisRuns.createdAt)
+			.where(eq(analysisRuns.submissionId, submissionId));
 
 		result.forEach((run) => {
 			if (!run.input) return;

@@ -5,7 +5,7 @@ import { config } from "dotenv";
 import { parse } from "node-html-parser";
 import { launch } from "puppeteer-core";
 import { tmpdir } from "os";
-import { getBrowser, getBrowserPage } from "./utils";
+import { getBrowser, getBrowserPage } from "./browser/";
 import is_ip_private from "private-ip";
 import { analyzeSMTPHeadersFromRaw } from "@bernierllc/smtp-analyzer";
 
@@ -56,7 +56,7 @@ export function getMailLinks(result: Awaited<ReturnType<typeof simpleParser>>) {
 }
 
 export async function getMailImage(result: Awaited<ReturnType<typeof simpleParser>>) {
-	const {page,context} = await getBrowserPage();
+	const { page, context } = await getBrowserPage();
 
 	try {
 		if (!result.html) throw new Error("No HTML content found");

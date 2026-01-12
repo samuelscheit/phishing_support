@@ -10,7 +10,7 @@ type OutputItem = {
 	content?: Array<{ type?: string; text?: string; refusal?: string }>;
 };
 
-function extractOutputText(output?: Array<OutputItem>): string | null {
+export function extractOutputText(output?: Array<OutputItem>): string | null {
 	if (!output || !Array.isArray(output) || output.length === 0) return null;
 
 	const parts: string[] = [];

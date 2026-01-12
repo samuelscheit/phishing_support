@@ -11,7 +11,7 @@ export async function emitStep(streamId: bigint | string | undefined, step: stri
 	await publishEvent(`run:${streamId}`, { type: "analysis.step", step, progress });
 }
 
-function retry(fn: () => Promise<any>, retries: number = 3, delayMs: number = 2000): Promise<any> {
+export function retry(fn: () => Promise<any>, retries: number = 3, delayMs: number = 2000): Promise<any> {
 	return fn().catch((err) => {
 		if (retries > 0) {
 			return new Promise((resolve) => setTimeout(resolve, delayMs)).then(() => retry(fn, retries - 1, delayMs));
@@ -69,7 +69,8 @@ ${archive.text.toString()}
 Here is the website raw html skeleton:
 ${archive.html.toString()}
 
-Please provide a detailed phishing analysis of the website (e.g. if its trying to impersonate another brand or service).
+Please provide a detailed phishing analysis of the website.
+Research if the website impersonates another brand/service using web_search. If possible the exact impersonated brand website URL address.
 Use web search if necessary to gather more information about the content/brand. (the website might be new and doesn't have any web results yet). (also you might not be able to access the website directly use the provided website text and screenshot).`,
 							},
 							{
@@ -81,7 +82,7 @@ Use web search if necessary to gather more information about the content/brand. 
 					},
 				],
 				reasoning: {
-					effort: "medium",
+					effort: "high",
 					summary: "detailed",
 				},
 				tools: [{ type: "web_search" }],
@@ -97,7 +98,7 @@ Use web search if necessary to gather more information about the content/brand. 
 				input: [
 					{
 						role: "system",
-						content: `Answer {"phishing":true} if the analysis concludes that the email is phishing or malicious. Otherwise answer {"phishing":false}. Provide no other text.`,
+						content: `Answer {"phishing":true} if the analysis concludes with a 95% certainty or more that the website is phishing. Otherwise answer {"phishing":false}. Provide no other text.`,
 					},
 					{
 						role: "user",
@@ -137,6 +138,7 @@ Use web search if necessary to gather more information about the content/brand. 
 					screenshotPng: archive.screenshotPng,
 					mhtml: archive.mhtml,
 				},
+				countryCode: user_country_code,
 			});
 
 			await emitStep(submissionId, "reporting to Google Safe Browsing", 90);

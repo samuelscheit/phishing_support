@@ -4,6 +4,7 @@ import { WhoISInfo } from "../website_info";
 import { generateReportDraft } from "./generateReportDraft";
 import { sendReportEmail } from "./sendReportEmail";
 import { reportTencentCloudAbuse } from "./tencentCloudAbuse";
+import { reportCloudflareAbuse } from "./cloudflareAbuse";
 
 export async function reportWebsitePhishing(params: {
 	submissionId: bigint;
@@ -11,6 +12,7 @@ export async function reportWebsitePhishing(params: {
 	whois: WhoISInfo;
 	analysisText: string;
 	archive: { screenshotPng: Buffer; mhtml: Buffer };
+	countryCode?: string;
 }) {
 	const generalNotes = `Write on behalf of "the team of phishing.support".
 Write to them if they need further information about this case; they can find it at https://phishing.support/submissions/${params.submissionId}
@@ -94,6 +96,13 @@ ${toon.encode(x.registrar)}
 				submissionId: params.submissionId,
 				analysisText: params.analysisText,
 				websiteScreenshot: params.archive.screenshotPng,
+			});
+		} else if (email === "abuse@cloudflare.com") {
+			return await reportCloudflareAbuse({
+				url: params.url,
+				submissionId: params.submissionId,
+				analysisText: params.analysisText,
+				countryCode: params.countryCode,
 			});
 		}
 

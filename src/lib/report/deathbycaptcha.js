@@ -63,9 +63,12 @@ Visit http://www.deathbycaptcha.com/user/api for updates.
 
 */
 
-const net = require("net");
-const FormData = require("form-data");
-const fs = require("fs");
+// const net = require("net");
+// const FormData = require("form-data");
+// const fs = require("fs");
+import net from "net";
+import FormData from "form-data";
+import fs from "fs";
 
 // API version and unique software ID
 const API_VERSION = "DBC/NodeJS v4.6";
@@ -177,7 +180,7 @@ class Client {
 	}
 }
 
-class HttpClient extends Client {
+export class HttpClient extends Client {
 	// Death by Captcha HTTP API client.
 
 	_call({ cmd, payload = null, headers = {}, files = null }, cb) {
@@ -299,7 +302,7 @@ class HttpClient extends Client {
 	}
 }
 
-class SocketClient extends Client {
+export class SocketClient extends Client {
 	// Death By Captcha Socket API Client.
 
 	_call({ cmd, payload = {}, headers = {}, files = null }, cb) {
@@ -453,8 +456,3 @@ class SocketClient extends Client {
 		this._call(params, cb);
 	}
 }
-
-module.exports = {
-	HttpClient: HttpClient,
-	SocketClient: SocketClient,
-};

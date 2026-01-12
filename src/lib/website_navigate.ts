@@ -1,9 +1,10 @@
 import fs, { writeFileSync } from "fs";
 import path from "path";
 import { config } from "dotenv";
-import { getBrowserPage, model, sleep } from "./utils";
+import { model, sleep } from "./utils";
 import type { ResponseCreateParamsNonStreaming, ResponseInput } from "openai/resources/responses/responses.mjs";
 import type { ElementHandle, Page } from "rebrowser-puppeteer-core";
+import { getBrowserPage } from "./browser";
 
 config({
 	path: path.join(__dirname, "..", "..", ".env"),

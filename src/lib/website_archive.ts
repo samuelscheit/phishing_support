@@ -1,6 +1,7 @@
-import { getBrowser, getBrowserPage, pathSafeFilename, sleep } from "./utils";
+import { pathSafeFilename, sleep } from "./utils";
 import path from "node:path";
 import fs from "node:fs";
+import { getBrowserPage } from "./browser";
 
 export type ArchivedWebsiteResponse = {
 	name: string;

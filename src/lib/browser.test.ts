@@ -1,6 +1,7 @@
 import { dirname, join } from "node:path";
 import fs from "node:fs";
-import { getBrowser, getBrowserPage } from "./utils";
+import { getBrowserPage } from "./browser/page";
+import { getBrowser } from "./browser/browser";
 
 process.env["DEBUG"] = "puppeteer:*";
 process.env["DEBUG_MAX_STRING_LENGTH"] = "null";

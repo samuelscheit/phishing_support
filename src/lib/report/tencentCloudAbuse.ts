@@ -1,16 +1,16 @@
 import { writeFileSync } from "fs";
 import { runStreamedAnalysisRun } from "../analysis_run";
 import { ReportsEntity } from "../db/entities";
-import { getBrowserPage, sleep } from "../utils";
-import { generateAbuseExplanation } from "./util";
 import { parse } from "tldts";
 import { join } from "path";
 import { tmpdir } from "os";
 import { HttpProxyAgent } from "http-proxy-agent";
+import { HttpClient } from "./deathbycaptcha";
+import { getBrowserPage } from "../browser";
 
-const dbc = require("./deathbycaptcha");
+// const dbc = require("./deathbycaptcha");
 
-const dbcClient = new dbc.HttpClient(process.env.DEATHBYCAPTCHA_USERNAME!, process.env.DEATHBYCAPTCHA_PASSWORD!);
+const dbcClient = new HttpClient(process.env.DEATHBYCAPTCHA_USERNAME!, process.env.DEATHBYCAPTCHA_PASSWORD!);
 
 export async function reportTencentCloudAbuse(params: {
 	url: string;
@@ -32,7 +32,7 @@ export async function reportTencentCloudAbuse(params: {
 The explanation must clearly state only the most important point why the website is a phishing site.
 
 Write very short to them if they need further information about this case, they can find it at https://phishing.support/submissions/${params.submissionId}
-`,
+Research the impersonated brand website URL address ("infringed_url") using web_search.`,
 					},
 					{
 						role: "user",
@@ -40,15 +40,13 @@ Write very short to them if they need further information about this case, they 
 ${params.analysisText}
 
 Phishing Website URL:
-${params.url}
-
-Research the impersonated brand website URL address ("infringed_url") using web_search.`,
+${params.url}`,
 					},
 				],
 				text: {
 					format: {
 						type: "json_schema",
-						name: "report_email",
+						name: "report_tencent_cloud_abuse",
 						schema: {
 							type: "object",
 							properties: {

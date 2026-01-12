@@ -1,9 +1,10 @@
 // @ts-ignore
 import anticaptcha from "@antiadmin/anticaptchaofficial";
 import { generateReportDraft } from "./generateReportDraft";
-import { getBrowserPage, sleep } from "../utils";
+import { sleep } from "../utils";
 import { ReportsEntity } from "../db/entities";
 import { generateAbuseExplanation } from "./util";
+import { getBrowserPage } from "../browser";
 
 export async function reportToGoogleSafeBrowsing(params: {
 	url: string;

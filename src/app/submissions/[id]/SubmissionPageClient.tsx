@@ -223,18 +223,24 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 			<div className="grid gap-6 md:grid-cols-12">
 				<Card className="md:col-span-8">
 					<CardHeader className="pb-4">
-						<div className="flex justify-between items-center gap-4">
+						<div className="flex justify-between items-center gap-0">
 							<CardTitle className="flex flex-row items-center gap-2 min-w-0">
 								{submission.kind === "website" ? (
 									<Globe className="h-8 w-8 shrink-0" />
 								) : (
 									<Mail className="h-8 w-8 shrink-0" />
 								)}
-								<span className="leading-none text-2xl -mt-1 truncate">{targetName}</span>
+								<span className="leading-none text-xl -mt-1 wrap-break-word sm:text-2xl">{targetName}</span>
 							</CardTitle>
-							<div className="flex flex-row items-end gap-2 shrink-0">
+							<div className="flex flex-col items-end gap-2 shrink-0 md:flex-row">
 								<Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">
-									{format(new Date(submission.createdAt), "PPP p")}
+									{new Date(submission.createdAt).toLocaleString(globalThis.navigator?.language || "en-US", {
+										year: "numeric",
+										month: "short",
+										day: "numeric",
+										hour: "2-digit",
+										minute: "2-digit",
+									})}
 								</Badge>
 
 								<SubmissionStatus status={submission.status} />
@@ -338,7 +344,7 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 			</div>
 
 			<Tabs defaultValue={defaultTab} className="w-full">
-				<TabsList>
+				<TabsList className="overflow-x-auto max-w-full no-scrollbar">
 					{submission.kind === "website" ? <TabsTrigger value="website">Website</TabsTrigger> : null}
 					{submission.kind === "email" ? <TabsTrigger value="email">Email</TabsTrigger> : null}
 					<TabsTrigger value="reports">Reports ({submission.reports.length})</TabsTrigger>

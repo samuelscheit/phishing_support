@@ -12,12 +12,8 @@ export const metadata: Metadata = {
 export default function InfoPage() {
 	return (
 		<SiteLayout>
-			<div className="space-y-10">
+			<div className="space-y-10 container max-w-2xl mx-auto">
 				<About />
-
-				<hr className="border-t my-6" />
-
-				<Donate />
 
 				<div className="pt-4">
 					<Link href="/" className="underline hover:text-primary">

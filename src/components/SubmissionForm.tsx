@@ -14,6 +14,24 @@ export function SubmissionForm() {
 	const [url, setUrl] = useState("");
 	const [file, setFile] = useState<File | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const email = "report@phishing.support";
+
+	const copyEmail = async () => {
+		try {
+			if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+				await navigator.clipboard.writeText(email);
+			} else {
+				const ta = document.createElement("textarea");
+				ta.value = email;
+				document.body.appendChild(ta);
+				ta.select();
+				document.execCommand("copy");
+				ta.remove();
+			}
+		} catch (err) {
+			console.error("copy failed", err);
+		}
+	};
 
 	const handleUrlSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -93,7 +111,7 @@ export function SubmissionForm() {
 							</div>
 							<Button type="submit" className="w-full" disabled={isSubmitting}>
 								{isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-								Analyze Website
+								Report Website
 							</Button>
 						</form>
 					</TabsContent>
@@ -126,9 +144,35 @@ export function SubmissionForm() {
 							</div>
 							<Button type="submit" className="w-full" disabled={isSubmitting || !file}>
 								{isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-								Analyze Email
+								Report Email
 							</Button>
 						</form>
+
+						{/* Notice: forwarding instructions for users who prefer email forwarding */}
+						<div className="mt-6 flex justify-center">
+							{/* Prominent clickable email block - copies address on click */}
+							<div
+								role="button"
+								tabIndex={0}
+								onKeyDown={(e: React.KeyboardEvent) => {
+									if (e.key === "Enter" || e.key === " ") {
+										e.preventDefault();
+										copyEmail();
+									}
+								}}
+								className={`cursor-pointer w-full px-6 py-4 rounded-lg shadow-sm border transition-colors bg-blue-50 text-center text-blue-800 border-blue-200 hover:bg-blue-100`}
+								onClick={() => copyEmail()}
+							>
+								<p className={`text-sm text-blue-900 font-medium select-none"}`}>
+									You can also forward phishing emails directly to:
+								</p>
+								<p className={`select-all mt-1 text-lg sm:text-xl font-semibold text-blue-900`}>report@phishing.support</p>
+								<p className={`text-sm mt-1 text-blue-800 select-none"}`}>
+									Attach the original email as a <span className="font-semibold">.eml</span> (Right click → "Forward as
+									attachment")
+								</p>
+							</div>
+						</div>
 					</TabsContent>
 				</Tabs>
 			</CardContent>

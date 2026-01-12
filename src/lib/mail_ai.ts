@@ -6,6 +6,8 @@ import { analyzeHeaders, getAddressesText, getMailImage } from "./mail";
 import { getInfo } from "./website_info";
 import * as toon from "@toon-format/toon";
 import { markSubmissionInvalid, reportEmailPhishing } from "./report";
+import { mailer } from "./utils";
+import { abuseReplyMail, abuseReplyName, abuseReplyUrl } from "./constants";
 
 async function emitStep(streamId: bigint | string | undefined, step: string, progress: number) {
 	if (!streamId) return;
@@ -158,6 +160,34 @@ ${toon.encode({ ...mail, eml: undefined })}`,
 			});
 		} else {
 			await markSubmissionInvalid(stream_id);
+		}
+
+		// Send a brief notification back to the reporter with the result and a link
+		try {
+			const from = process.env.SMTP_FROM || `${abuseReplyName} <${abuseReplyMail}>`;
+			const to = mail.from || "";
+			if (to) {
+				const reportedText = phishing
+					? "The email was identified as phishing and we have reported this case to the responsible providers."
+					: "We did not identify this as phishing and marked the submission as invalid.";
+				const subject = `Phishing Support — Submission ${stream_id} analysis result`;
+				const body = [
+					`Hi,`,
+					"",
+					`Thank you for your submission (ID: ${stream_id}). We analyzed the email you provided and here are the results:`,
+					"",
+					reportedText,
+					"",
+					`You can view details at: ${abuseReplyUrl}submissions/${stream_id}`,
+					"",
+					`Thank you very much for helping to combat phishing!`,
+					`Your ${abuseReplyName} Team`,
+				].join("\n");
+
+				await mailer.sendMail({ from, to, subject, text: body });
+			}
+		} catch (err) {
+			console.error("Failed to send reporter notification email:", err);
 		}
 
 		await emitStep(stream_id, "completed", 100);

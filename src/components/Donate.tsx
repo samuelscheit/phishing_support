@@ -17,7 +17,7 @@ export default function Donate() {
 
 			<p className="text-muted-foreground">
 				This project is free and open source, but running automated analysis and AI-powered classification has costs (API calls,
-				compute, hosting). If you find this useful, a small donation helps keep the service online and helps to fight phishing.
+				compute, hosting). If you find this useful, a small donation helps keep the service online and helps fight phishing.
 			</p>
 
 			<div className="flex gap-3 justify-between">

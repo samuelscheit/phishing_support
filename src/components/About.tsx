@@ -63,7 +63,7 @@ export default function About() {
 									height={128}
 									className="rounded-full float-right inline mr-2 mb-2"
 								/>
-								<span>Hi, I’m Samuel 👋 and I like building things.</span>
+								<span>Hi, I'm Samuel 👋 and I like building things.</span>
 								<br />
 								Most of the time that means small open-source projects, often around data science, where I can learn
 								something new and turn an idea into something practical. I keep a{" "}
@@ -75,7 +75,7 @@ export default function About() {
 								>
 									website/blog
 								</a>{" "}
-								where I write about what I’m working on from time to time , and most of my projects live on{" "}
+								where I write about what I'm working on from time to time, and most of my projects live on{" "}
 								<a
 									href="https://github.com/samuelScheit"
 									target="_blank"
@@ -84,7 +84,7 @@ export default function About() {
 								>
 									GitHub
 								</a>
-								. If you’re curious, I also post irregular updates on{" "}
+								. If you're curious, I also post irregular updates on{" "}
 								<a
 									href="https://x.com/SamuelScheit"
 									target="_blank"
@@ -114,7 +114,7 @@ export default function About() {
 				<pre className="text-muted-foreground whitespace-break-spaces font-sans text-justify">
 					Phishing emails have been showing up in my inbox for years.
 					<br />
-					Annoying is one thing - but the part that really got old was how much busywork it takes to do something about them.
+					Annoying is one thing, but the part that really got old was how much busywork it takes to do something about them.
 					<br />
 					<br />
 					Every time I wanted to report one properly, I'd end up repeating the same routine: dig through the headers, trace where
@@ -127,7 +127,7 @@ export default function About() {
 					I thought: there has to be a better way. Why not automate this whole process?
 					<br />
 					<br />
-					So I built Phishing Support, an application that automates the analysis and reporting of phishing mails and websites.
+					So I built Phishing Support, an application that automates the analysis and reporting of phishing emails and websites.
 				</pre>
 			</div>
 

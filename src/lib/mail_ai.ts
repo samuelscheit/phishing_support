@@ -2,7 +2,7 @@ import { ArtifactsEntity, SubmissionsEntity } from "./db/entities";
 import { runStreamedAnalysisRun } from "./analysis_run";
 import { publishEvent } from "./event/event_transport";
 import { simpleParser } from "mailparser";
-import { analyzeHeaders, getAddressesText } from "./mail";
+import { analyzeHeaders, getAddressesText, getMailImage } from "./mail";
 import { getInfo } from "./website_info";
 import * as toon from "@toon-format/toon";
 import { markSubmissionInvalid, reportEmailPhishing } from "./report";
@@ -13,7 +13,7 @@ async function emitStep(streamId: bigint | string | undefined, step: string, pro
 }
 
 export async function parseMail(eml: string) {
-	const parsedMail = await simpleParser(eml, { skipTextToHtml: true });
+	const parsedMail = await simpleParser(eml, {});
 
 	const headers = analyzeHeaders(parsedMail.headerLines.map((x) => x.line).join("\n"));
 
@@ -47,6 +47,20 @@ export async function analyzeMail(emlContent: string, stream_id: bigint) {
 	try {
 		const mail = await parseMail(emlContent);
 
+		await emitStep(stream_id, "start", 0);
+		await SubmissionsEntity.update(stream_id, { status: "running", data: { kind: "email", email: mail } });
+
+		try {
+			const image = await getMailImage(mail);
+			await ArtifactsEntity.saveBuffer({
+				submissionId: stream_id,
+				name: "mail.png",
+				kind: "screenshot",
+				mimeType: "image/png",
+				buffer: image,
+			});
+		} catch (error) {}
+
 		// Save EML artifact
 		await ArtifactsEntity.saveBuffer({
 			submissionId: stream_id,
@@ -55,9 +69,6 @@ export async function analyzeMail(emlContent: string, stream_id: bigint) {
 			mimeType: "message/rfc822",
 			buffer: Buffer.from(emlContent, "utf-8"),
 		});
-
-		await emitStep(stream_id, "start", 0);
-		await SubmissionsEntity.update(stream_id, { status: "running", data: { kind: "email", email: mail } });
 
 		await emitStep(stream_id, "analysis_run", 30);
 

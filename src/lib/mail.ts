@@ -9,6 +9,7 @@ import { getBrowser, getBrowserPage } from "./browser/";
 import is_ip_private from "private-ip";
 import { analyzeSMTPHeadersFromRaw } from "@bernierllc/smtp-analyzer";
 import { MailData } from "./mail_ai";
+import { sleep } from "./utils";
 
 export function getAddressesText(obj: AddressObject[] | AddressObject | undefined): string {
 	if (!obj) return "";
@@ -56,31 +57,36 @@ export function getMailLinks(result: MailData) {
 	return [];
 }
 
-export async function getMailImage(result: Awaited<ReturnType<typeof simpleParser>>) {
-	const { page, context } = await getBrowserPage();
+export async function getMailImage(result: MailData) {
+	const browser = await getBrowser();
+	const page = await browser.newPage();
 
 	try {
 		if (!result.html) throw new Error("No HTML content found");
 
 		await page.setViewport({ width: 1080, height: 720 });
 
-		await page.setJavaScriptEnabled(false);
-
 		await page.setContent(result.html, {
-			waitUntil: "networkidle0",
+			waitUntil: "domcontentloaded",
 		});
 
-		await page.screenshot({
-			path: path.join(__dirname, "..", "..", "data", "mail.png"),
+		await page.setJavaScriptEnabled(false);
+
+		await page.waitForNetworkIdle();
+
+		const screenshot = await page.screenshot({
 			fullPage: true,
 			captureBeyondViewport: true,
 			type: "png",
 		});
+		await page.close();
+		return Buffer.from(screenshot);
 	} catch (error) {
-		console.error("Error processing HTML content:", error);
-	}
+		await page.close();
 
-	await context.close();
+		console.error("Error processing HTML content:", error);
+		throw error;
+	}
 }
 
 function normalizeHeaderValue(value: unknown): string[] {

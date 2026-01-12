@@ -12,6 +12,7 @@ export async function getBrowser() {
 
 	const isDocker = process.env.DOCKER === "true" || process.env.PUPPETEER_NO_SANDBOX === "true";
 	const chromePath = process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+	// const chromePath = process.env.CHROME_PATH || "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser";
 
 	const userDataDir = path.join(tmpdir(), "puppeteer-user-data");
 	fs.mkdirSync(userDataDir, { recursive: true });

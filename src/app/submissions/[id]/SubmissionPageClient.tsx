@@ -52,19 +52,19 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 			? safeHostname(submission.data.website?.url)
 			: (submission?.data.email?.subject as string | undefined) || "Untitled Submission";
 
-	const websiteScreenshot = submission?.artifacts?.find(
-		(a) => (a.name || "").toLowerCase() === "website.png" && (a.mimeType || "").startsWith("image/")
+	const screenshot = submission?.artifacts?.find(
+		(a) => (a.name?.toLowerCase() === "website.png" || a.name?.toLowerCase() === "mail.png") && a.mimeType?.startsWith("image/")
 	);
 	const websiteMhtml = submission?.artifacts?.find(
-		(a) => (a.name || "").toLowerCase() === "website.mhtml" || (a.mimeType || "").toLowerCase() === "text/mhtml"
+		(a) => a.name?.toLowerCase() === "website.mhtml" || a.mimeType?.toLowerCase() === "text/mhtml"
 	);
 	const emailEml = submission?.artifacts?.find((a) => {
-		const name = (a.name || "").toLowerCase();
-		const mime = (a.mimeType || "").toLowerCase();
-		const kind = (a.kind || "").toLowerCase();
-		return name.endsWith(".eml") || name === "mail.eml" || mime === "message/rfc822" || kind === "eml";
+		const name = a.name?.toLowerCase();
+		const mime = a.mimeType?.toLowerCase();
+		const kind = a.kind?.toLowerCase();
+		return name?.endsWith(".eml") || name === "mail.eml" || mime === "message/rfc822" || kind === "eml";
 	});
-	const artifacts = submission?.artifacts.filter((x) => x !== websiteScreenshot) || [];
+	const artifacts = submission?.artifacts.filter((x) => x !== screenshot) || [];
 
 	const sanitizeHtmlForIframe = (rawHtml: string): string => {
 		try {
@@ -318,14 +318,10 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 				</Card>
 
 				<div className="md:col-span-4">
-					{websiteScreenshot ? (
+					{screenshot ? (
 						<Card className="overflow-hidden">
 							<div className="aspect-video bg-muted overflow-hidden">
-								<img
-									src={`/api/artifacts/${websiteScreenshot.id}`}
-									alt="website.png"
-									className="object-cover w-full h-full"
-								/>
+								<img src={`/api/artifacts/${screenshot.id}`} alt="website.png" className="object-cover w-full h-full" />
 							</div>
 						</Card>
 					) : isFailed && submission.info ? (

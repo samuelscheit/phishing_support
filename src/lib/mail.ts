@@ -10,6 +10,7 @@ import is_ip_private from "private-ip";
 import { analyzeSMTPHeadersFromRaw } from "@bernierllc/smtp-analyzer";
 import { MailData } from "./mail_ai";
 import { sleep } from "./utils";
+import MailAddressParser from "nodemailer/lib/addressparser";
 
 export function getAddressesText(obj: AddressObject[] | AddressObject | undefined): string {
 	if (!obj) return "";
@@ -163,6 +164,9 @@ export function analyzeHeaders(headers: string) {
 		}
 	});
 
+	const fromHeader = getHeaderValues(headersMap, "from");
+	const from = fromHeader?.length > 0 && MailAddressParser(fromHeader[0], { flatten: true });
+
 	const dmarcPolicy = getHeaderValues(headersMap, "x-dmarc-policy");
 	const dmarcInfo = getHeaderValues(headersMap, "x-dmarc-info");
 	const arcInfo = getHeaderValues(headersMap, "x-arc-info");
@@ -178,6 +182,16 @@ export function analyzeHeaders(headers: string) {
 	const signature = result.data.securityHeaders.dkimSignature;
 	delete result.data.securityHeaders.receivedSpf;
 	delete result.data.securityHeaders.dkimSignature;
+
+	let originatingIp = result.data.routing.originatingIp;
+	let originatingServer = result.data.routing.originatingServer;
+
+	if (sourceHop) {
+		originatingIp = sourceHop.fromIp;
+		originatingServer = sourceHop.fromHost;
+	} else if (from && from[0].address && !originatingServer) {
+		originatingServer = from[0].address.split("@")[1];
+	}
 
 	return {
 		authentication: {
@@ -195,12 +209,8 @@ export function analyzeHeaders(headers: string) {
 		},
 		routing: {
 			...result.data.routing,
-			...(sourceHop
-				? {
-						originatingIp: sourceHop.fromIp,
-						originatingServer: sourceHop.fromHost,
-					}
-				: {}),
+			originatingIp,
+			originatingServer,
 		},
 	};
 

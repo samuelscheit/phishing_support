@@ -14,17 +14,52 @@ async function emitStep(streamId: bigint | string | undefined, step: string, pro
 	await publishEvent(`run:${streamId}`, { type: "analysis.step", step, progress });
 }
 
+function recursiveClean(node: any, info: string[]): any {
+	if (Array.isArray(node)) {
+		return node.map((x) => recursiveClean(x, info));
+	} else if (node && typeof node === "object") {
+		const cleaned: any = {};
+		for (const [key, value] of Object.entries(node)) {
+			if (value !== undefined && value !== null) {
+				cleaned[key] = recursiveClean(value, info);
+			}
+		}
+		return cleaned;
+	} else if (typeof node === "string") {
+		let cleaned = node;
+		for (const inf of info) {
+			cleaned = cleaned.replaceAll(inf, "[redacted]");
+		}
+		return cleaned;
+	} else {
+		return node;
+	}
+}
+
+export function cleanPrivateInformation(mail: MailData) {
+	const infos = [mail.to_object?.address, mail.to_object?.name].filter((x) => x !== undefined && x?.length > 3);
+
+	// TODO: extract name from greetings
+
+	return recursiveClean(mail, infos as string[]) as MailData;
+}
+
 export async function parseMail(eml: string) {
 	const parsedMail = await simpleParser(eml, {});
 
 	const headers = analyzeHeaders(parsedMail.headerLines.map((x) => x.line).join("\n"));
 
-	const whois = await getInfo(headers.routing.originatingIp!);
+	let whois = undefined;
+	if (headers.routing.originatingIp || headers.routing.originatingServer) {
+		whois = await getInfo(headers.routing.originatingIp || headers.routing.originatingServer!);
+	}
 
 	return {
 		eml,
 		from: getAddressesText(parsedMail.from),
+		from_object: parsedMail.from?.value[0],
 		to: getAddressesText(parsedMail.to),
+		to_object: Array.isArray(parsedMail.to) ? parsedMail.to[0].value[0] : parsedMail.to?.value[0],
 		cc: getAddressesText(parsedMail.cc),
 		bcc: getAddressesText(parsedMail.bcc),
 		subject: parsedMail.subject || "",
@@ -47,7 +82,7 @@ export type MailData = Awaited<ReturnType<typeof parseMail>>;
 
 export async function analyzeMail(emlContent: string, stream_id: bigint) {
 	try {
-		const mail = await parseMail(emlContent);
+		const mail = cleanPrivateInformation(await parseMail(emlContent));
 
 		await emitStep(stream_id, "start", 0);
 		await SubmissionsEntity.update(stream_id, { status: "running", data: { kind: "email", email: mail } });
@@ -69,7 +104,7 @@ export async function analyzeMail(emlContent: string, stream_id: bigint) {
 			name: "mail.eml",
 			kind: "eml",
 			mimeType: "message/rfc822",
-			buffer: Buffer.from(emlContent, "utf-8"),
+			buffer: Buffer.from(mail.eml, "utf-8"),
 		});
 
 		await emitStep(stream_id, "analysis_run", 30);

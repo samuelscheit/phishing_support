@@ -456,7 +456,7 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 					{runsToShow.length > 0 ? (
 						runsToShow.map((run: any) => (
 							<div key={run.id} className={isRunning ? "overflow-hidden" : "overflow-hidden flex flex-col h-[90vh]"}>
-								<div className="bg-muted/50 py-3 shrink-0">
+								<div className="py-3 shrink-0">
 									<div className="flex justify-between items-center">
 										<CardTitle className="text-sm font-mono uppercase">AI Analysis</CardTitle>
 										<Badge variant={run.status === "completed" ? "default" : "outline"}>{run.status}</Badge>

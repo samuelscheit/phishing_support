@@ -168,6 +168,11 @@ export const model = new OpenAI({
 export function getProxyOptions() {
 	if (!PROXY_URL) return {};
 
+	if (PROXY_URL.startsWith("http://") || PROXY_URL.startsWith("https://")) {
+		const agent = new HttpProxyAgent(PROXY_URL);
+		return { agent, proxy: PROXY_URL };
+	}
+
 	const agent = new SocksProxyAgent(PROXY_URL);
 	return { agent, proxy: PROXY_URL };
 }

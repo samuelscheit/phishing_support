@@ -262,7 +262,7 @@ export async function getInfo(domain_or_ip: string): Promise<WhoISInfo> {
 		root_info = await getInfo(domain);
 	}
 
-	const [rdap, dns_info] = await Promise.all([queryRDAPDomain(target), queryDns(target)]);
+	const [rdap, dns_info] = await Promise.all([queryRDAPDomain(domain || target), queryDns(target)]);
 
 	var nameservers = uniq([...dns_info.NS, ...(rdap?.nameservers || [])].map((x) => parse(x).domain).filter(Boolean) as string[]);
 	let nameserver_info = undefined as RDAPDomainInfo[] | undefined;

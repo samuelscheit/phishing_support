@@ -490,7 +490,7 @@ export async function extractEmlsFromIncomingMessage(parsed: ParsedMail, listenA
 
 		const composed = await new MailComposer({
 			from: parseMailAddressToObject(from),
-			to: parseMailAddressToObject(mail.to),
+			to: parseMailAddressToObject(parsed.from),
 			bcc: parseMailAddressToObject(mail.bcc),
 			cc: parseMailAddressToObject(mail.cc),
 			subject: mail.subject || "(no subject)",

@@ -51,8 +51,13 @@ export async function parseMail(eml: string) {
 	const headers = analyzeHeaders(parsedMail.headerLines.map((x) => x.line).join("\n"));
 
 	let whois = undefined;
+
 	if (headers.routing.originatingIp || headers.routing.originatingServer) {
-		whois = await getInfo(headers.routing.originatingIp || headers.routing.originatingServer!);
+		try {
+			whois = await getInfo(headers.routing.originatingIp || headers.routing.originatingServer!);
+		} catch (error) {
+			console.error("Failed to get WHOIS info for mail origin:", error, headers.routing);
+		}
 	}
 
 	return {
@@ -190,9 +195,13 @@ ${toon.encode({ ...mail, eml: undefined })}`,
 		const { phishing } = structuredResponse.output_parsed || ({} as { phishing: boolean });
 
 		const from = process.env.SMTP_FROM || `${abuseReplyName} <${abuseReplyMail}>`;
-		const to = privateMail.to_object?.address;
 		const date = mail.date ? new Date(mail.date).toLocaleString("en-US", { timeZone: "UTC" }) : undefined;
 		const submissionSubject = `"${mail.to_object?.name || mail.to_object?.address}" ${date ? "from " + date : ""}`;
+		let to = privateMail.to_object?.address;
+
+		if (to?.endsWith("@phishing.support")) {
+			to = undefined;
+		}
 
 		if (phishing) {
 			await emitStep(stream_id, "reporting", 90);

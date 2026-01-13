@@ -146,40 +146,50 @@ function simplifyEntity(entity: any): RDAPEntity {
 }
 
 async function queryRDAPDomain(domain: string): Promise<RDAPDomainInfo | undefined> {
-	const response = await retry(() =>
-		fetch(`https://rdap.verisign.com/com/v1/domain/${domain}`, {
-			method: "GET",
-			headers: {
-				Accept: "application/rdap+json",
-			},
-			verbose: true,
-			...getProxyOptions(),
-		})
-	);
+	try {
+		const response = await retry(() =>
+			fetch(`https://rdap.verisign.com/com/v1/domain/${domain}`, {
+				method: "GET",
+				headers: {
+					Accept: "application/rdap+json",
+				},
+				verbose: true,
+				...getProxyOptions(),
+			})
+		);
 
-	if (!response.ok) return;
+		if (!response.ok) return;
 
-	const json = await response.json();
-	if (!json) return json;
+		const json = await response.json();
+		if (!json) return json;
 
-	return simplifyDomainRDAP(json, domain);
+		return simplifyDomainRDAP(json, domain);
+	} catch (error) {
+		console.error("Error querying RDAP for domain:", domain, error);
+		return undefined;
+	}
 }
 
-async function queryIP(ip: string): Promise<RDAPIPInfo> {
-	const response = await retry(() =>
-		fetch(`https://rdap.arin.net/registry/ip/${ip}`, {
-			method: "GET",
-			headers: {
-				Accept: "application/rdap+json",
-			},
-			verbose: true,
-			...getProxyOptions(),
-		})
-	);
+async function queryIP(ip: string): Promise<RDAPIPInfo | undefined> {
+	try {
+		const response = await retry(() =>
+			fetch(`https://rdap.arin.net/registry/ip/${ip}`, {
+				method: "GET",
+				headers: {
+					Accept: "application/rdap+json",
+				},
+				verbose: true,
+				...getProxyOptions(),
+			})
+		);
 
-	const json = await response.json();
+		const json = await response.json();
 
-	return simplifyIP(json, ip);
+		return simplifyIP(json, ip);
+	} catch (error) {
+		console.error("Error querying RDAP for IP:", ip, error);
+		return undefined;
+	}
 }
 
 function simplifyDomainRDAP(json: any, domain: string): RDAPDomainInfo {
@@ -251,7 +261,7 @@ export async function getInfo(domain_or_ip: string): Promise<WhoISInfo> {
 	if (isIP(target)) {
 		const rdap = await queryIP(target);
 
-		return { ip_rdaps: [rdap] };
+		return { ip_rdaps: rdap ? [rdap] : [] };
 	}
 
 	const { domain } = parse(domain_or_ip);
@@ -275,7 +285,10 @@ export async function getInfo(domain_or_ip: string): Promise<WhoISInfo> {
 
 	const ip_addresses = [...dns_info.A, ...dns_info.AAAA];
 
-	const ip_rdaps = uniqBy(await Promise.all(ip_addresses.map((ip) => queryIP(ip))), (item) => item.abuse?.email || item.handle);
+	const ip_rdaps = uniqBy(
+		(await Promise.all(ip_addresses.map((ip) => queryIP(ip)))).filter((x) => x !== undefined) as RDAPIPInfo[],
+		(item) => item.abuse?.email || item.handle
+	);
 
 	return {
 		rdap,

@@ -113,7 +113,9 @@ export async function startImapListener() {
 				const sourcePrefix = makeImapSourcePrefix(msg.uid);
 				const existingSubmissionId = await SubmissionsEntity.findIdBySourcePrefix(sourcePrefix);
 				if (existingSubmissionId) {
-					console.log(`Skipping IMAP UID ${msg.uid}: already has submission ${existingSubmissionId.toString()}`);
+					console.log(
+						`Skipping IMAP UID ${msg.uid} (${sourcePrefix}): already has submission ${existingSubmissionId.toString()}`
+					);
 					try {
 						await client.messageFlagsAdd(msg.uid, ["\\Seen"], { uid: true });
 					} catch (e) {

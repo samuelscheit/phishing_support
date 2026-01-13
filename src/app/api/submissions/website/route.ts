@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		const user_country_code = await getUserCC(req);
+		console.log("Website submission from country:", user_country_code);
 		const stream_id = await createWebsiteSubmission(url, user_country_code);
 
 		return NextResponse.json({ stream_id });

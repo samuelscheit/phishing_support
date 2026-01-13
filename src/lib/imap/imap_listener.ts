@@ -263,15 +263,20 @@ export async function startImapListener() {
 	const stop = async () => {
 		if (stopped) return;
 		stopped = true;
+		console.log("Stopping IMAP client...");
 		try {
 			await client.logout();
 		} catch {
 			// ignore
 		}
+		console.log("IMAP client stopped.");
+		process.exit(0);
 	};
 
 	process.on("SIGINT", () => void stop());
 	process.on("SIGTERM", () => void stop());
+
+	console.log("Connecting to IMAP server...");
 
 	await client.connect();
 

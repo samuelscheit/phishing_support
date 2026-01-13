@@ -159,13 +159,18 @@ export const model = new OpenAI({
 	apiKey: process.env.OPENAI_API_KEY ?? "",
 	baseURL: process.env.OPENAI_API_BASE_URL || "https://api.openai.com/v1",
 	// fetch,
-	fetchOptions: PROXY_URL
-		? {
-				agent: new HttpProxyAgent(PROXY_URL!),
-				proxy: PROXY_URL,
-			}
-		: undefined,
+	fetchOptions: {
+		...getProxyOptions(),
+		verbose: true,
+	},
 });
+
+export function getProxyOptions() {
+	if (!PROXY_URL) return {};
+
+	const agent = new SocksProxyAgent(PROXY_URL);
+	return { agent, proxy: PROXY_URL };
+}
 
 export async function getUserCC(req: Request) {
 	try {

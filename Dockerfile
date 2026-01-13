@@ -57,4 +57,4 @@ COPY --from=builder /app/src ./src
 
 EXPOSE 3000
 
-CMD ["sh", "-lc", "xvfb-run -a --server-args='-screen 0 1280x1024x24 -nolisten tcp' bunx --bun next start -H 0.0.0.0 -p 3000"]
+CMD ["sh", "-lc", "xvfb-run -a --server-args='-screen 0 1280x1024x24 -nolisten tcp' bunx --bun run start"]

@@ -42,7 +42,7 @@ export class SubmissionsEntity {
 			.limit(1);
 
 		if (exists.length > 0) {
-			if (exists[0].status === "failed" || true) {
+			if (exists[0].status === "failed") {
 				await db.delete(submissions).where(eq(submissions.id, exists[0].id));
 			} else {
 				return exists[0].id;

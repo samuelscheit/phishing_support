@@ -11,7 +11,7 @@ export async function emitStep(streamId: bigint | string | undefined, step: stri
 	await publishEvent(`run:${streamId}`, { type: "analysis.step", step, progress });
 }
 
-export function retry(fn: () => Promise<any>, retries: number = 3, delayMs: number = 2000): Promise<any> {
+export function retry(fn: () => Promise<any>, retries: number = 2, delayMs: number = 1000): Promise<any> {
 	return fn().catch((err) => {
 		if (retries > 0) {
 			return new Promise((resolve) => setTimeout(resolve, delayMs)).then(() => retry(fn, retries - 1, delayMs));

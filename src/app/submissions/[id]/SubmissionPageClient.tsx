@@ -224,7 +224,7 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 			<div className="grid gap-6 items-stretch pt-4 md:grid-cols-12">
 				<div className="col-span-8 h-full flex flex-col ">
 					<div className="pb-4">
-						<div className="flex justify-between items-center gap-0">
+						<div className="flex justify-between items-start gap-0">
 							<CardTitle className="flex flex-row items-center gap-2 min-w-0">
 								{submission.kind === "website" ? (
 									<Globe className="h-8 w-8 shrink-0" />

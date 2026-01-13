@@ -18,6 +18,8 @@ export async function POST(req: NextRequest) {
 		const buffer = Buffer.from(bytes);
 		const emlContent = buffer.toString("utf-8");
 
+		console.log("Email submission received, size:", buffer.length);
+
 		const stream_id = await createEmailSubmissionFromEml(emlContent, "web-upload");
 		return NextResponse.json({ stream_id });
 	} catch (err) {

@@ -14,7 +14,7 @@ const dev = process.env.NODE_ENV !== "production";
 const port = envInt("PORT", 3000);
 const hostname = process.env.HOSTNAME ?? (process.env.DOCKER ? "0.0.0.0" : "localhost");
 
-const app = next({ dev, hostname, port });
+const app = next({ dev, hostname, port, customServer: true });
 const handler = app.getRequestHandler();
 
 await app.prepare();

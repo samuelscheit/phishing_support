@@ -3,6 +3,8 @@ import uniqBy from "lodash/uniqBy";
 import uniq from "lodash/uniq";
 import { parse } from "tldts";
 import { recursiveAbuseContact } from "../web_lib/util";
+import { getProxyOptions } from "./utils";
+import { retry } from "./website_ai";
 
 export async function queryDns(domain: string) {
 	const [a, aaaa, ns, mx, cname, txt] = await Promise.allSettled([
@@ -144,12 +146,15 @@ function simplifyEntity(entity: any): RDAPEntity {
 }
 
 async function queryRDAPDomain(domain: string): Promise<RDAPDomainInfo | undefined> {
-	const response = await fetch(`https://rdap.verisign.com/com/v1/domain/${domain}`, {
-		method: "GET",
-		headers: {
-			Accept: "application/rdap+json",
-		},
-	});
+	const response = await retry(() =>
+		fetch(`https://rdap.verisign.com/com/v1/domain/${domain}`, {
+			method: "GET",
+			headers: {
+				Accept: "application/rdap+json",
+			},
+			...getProxyOptions(),
+		})
+	);
 
 	if (!response.ok) return;
 
@@ -160,12 +165,15 @@ async function queryRDAPDomain(domain: string): Promise<RDAPDomainInfo | undefin
 }
 
 async function queryIP(ip: string): Promise<RDAPIPInfo> {
-	const response = await fetch(`https://rdap.db.ripe.net/ip/${ip}`, {
-		method: "GET",
-		headers: {
-			Accept: "application/rdap+json",
-		},
-	});
+	const response = await retry(() =>
+		fetch(`https://rdap.db.ripe.net/ip/${ip}`, {
+			method: "GET",
+			headers: {
+				Accept: "application/rdap+json",
+			},
+			...getProxyOptions(),
+		})
+	);
 
 	const json = await response.json();
 

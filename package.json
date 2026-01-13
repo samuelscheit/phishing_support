@@ -7,7 +7,7 @@
 		"dev": "bunx --bun next dev",
 		"imap": "bun run src/lib/imap/run.ts",
 		"build": "bunx --bun next build",
-		"start": "bunx --bun next start",
+		"start": "NODE_ENV=production bun src/lib/server_start.ts",
 		"migrations:generate": "drizzle-kit generate",
 		"migrations:apply": "drizzle-kit migrate",
 		"migrations:push": "drizzle-kit push"

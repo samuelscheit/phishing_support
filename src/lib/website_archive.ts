@@ -41,7 +41,7 @@ async function archiveWebsiteInternal(link: string, country_code?: string): Prom
 				if (!response.request().isNavigationRequest()) return;
 				const uri = new URL(response.url());
 				if (hostname !== uri.hostname) {
-					reject(new Error("Redirected to different hostname"));
+					// reject(new Error("Redirected to different hostname"));
 				}
 			});
 
@@ -125,7 +125,7 @@ async function archiveWebsiteInternal(link: string, country_code?: string): Prom
 		);
 	});
 
-	innerText = (await page.title()) + "\n\n" + description + "\n\n" + innerText;
+	innerText = ((await page.title()) + "\n\n" + description + "\n\n" + innerText).replaceAll(/ +/g, " ").replaceAll(/\n+/g, "\n").trim();
 
 	await context.close();
 

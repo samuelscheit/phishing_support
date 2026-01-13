@@ -319,7 +319,6 @@ export async function extractForwardedText(parsed: ParsedMail) {
 				}
 			});
 
-			// console.log("Extracted forwarded text from HTML content.", found);
 			const rendered = render(dom, { decodeEntities: true });
 			return rendered;
 		}
@@ -485,7 +484,6 @@ export async function extractEmlsFromIncomingMessage(parsed: ParsedMail, listenA
 				value: addresses,
 				html: address?.address || "",
 			};
-			console.log("Parsed 'Von' header for From address:", from);
 		}
 
 		const composed = await new MailComposer({
@@ -493,7 +491,7 @@ export async function extractEmlsFromIncomingMessage(parsed: ParsedMail, listenA
 			to: parseMailAddressToObject(parsed.from),
 			bcc: parseMailAddressToObject(mail.bcc),
 			cc: parseMailAddressToObject(mail.cc),
-			subject: mail.subject || "(no subject)",
+			subject: parsed.subject?.replace("Fwd:", "").replace("FW:", "").trim() || mail.subject || "(no subject)",
 			text: mail.text || undefined,
 			html: forwardedHtml || undefined,
 			attachments: (mail.attachments || parsed.attachments).map((x) => ({

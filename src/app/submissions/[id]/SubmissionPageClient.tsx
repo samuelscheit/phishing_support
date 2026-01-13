@@ -72,30 +72,6 @@ export function SubmissionPageClient({ id, initialSubmission }: { id: string; in
 			const parser = new DOMParser();
 			const doc = parser.parseFromString(rawHtml, "text/html");
 
-			// Remove active/embedding content.
-			// doc.querySelectorAll("script, iframe, frame, object, embed, link[rel='preload'], link[rel='modulepreload']").forEach((el) =>
-			// 	el.remove()
-			// );
-
-			// // Remove inline event handlers and block remote loads.
-			// doc.querySelectorAll("*").forEach((el) => {
-			// 	// strip on* handlers
-			// 	[...el.attributes].forEach((attr) => {
-			// 		if (attr.name.toLowerCase().startsWith("on")) el.removeAttribute(attr.name);
-			// 	});
-
-			// 	if (el instanceof HTMLAnchorElement) {
-			// 		const href = el.getAttribute("href") || "";
-			// 		if (/^(https?:)?\/\//i.test(href)) el.removeAttribute("href");
-			// 	}
-
-			// 	if (el instanceof HTMLImageElement) {
-			// 		const src = el.getAttribute("src") || "";
-			// 		// Avoid fetching remote images (tracking pixels etc.).
-			// 		if (/^(https?:)?\/\//i.test(src)) el.removeAttribute("src");
-			// 	}
-			// });
-
 			// Wrap in a minimal doc to keep email styles from leaking.
 			return `<!doctype html><html><head><meta charset="utf-8" /><meta name="referrer" content="no-referrer" /></head><body>${doc.body.innerHTML}</body></html>`;
 		} catch {

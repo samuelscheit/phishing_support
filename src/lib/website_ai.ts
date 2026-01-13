@@ -63,11 +63,11 @@ ${toon.encode(whois)}
 
 Here is the website text content:
 <website_text>
-${archive.text.toString()}
+${archive.text.toString().slice(0, 10000)}
 </website_text>
 
 Here is the website raw html skeleton:
-${archive.html.toString()}
+${archive.html.toString().slice(0, 10000)}
 
 Please provide a detailed phishing analysis of the website.
 Research if the website impersonates another brand/service using web_search. If possible the exact impersonated brand website URL address.

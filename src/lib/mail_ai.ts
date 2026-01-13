@@ -242,6 +242,9 @@ ${toon.encode({ ...mail, eml: undefined })}`,
 
 		// Send a brief notification back to the reporter with the result and a link
 		try {
+			console.log(
+				`Sending reporter notification email to ${to} from ${from} for submission ${stream_id}. Subject: ${subject} Body: ${body}`
+			);
 			if (to && from && subject && body) {
 				await mailer?.sendMail({ from, to, subject, text: body });
 			}

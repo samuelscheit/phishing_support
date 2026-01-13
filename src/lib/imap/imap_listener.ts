@@ -7,6 +7,7 @@ import { generateId } from "@/lib/db/ids";
 import { join } from "node:path";
 import { createEmailSubmissionFromEml } from "../../app/api/submissions/email/route";
 import { extractEmlsFromIncomingMessage } from "../mail_forwarded";
+import { retry } from "../website_ai";
 
 function requiredEnv(name: string): string {
 	const value = process.env[name];
@@ -94,7 +95,7 @@ export async function startImapListener() {
 
 	console.log("Connecting to IMAP server...");
 
-	await client.connect();
+	await retry(() => client.connect());
 
 	let lock = await client.getMailboxLock(mailbox);
 	try {

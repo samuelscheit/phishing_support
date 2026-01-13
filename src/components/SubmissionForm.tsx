@@ -86,7 +86,7 @@ export function SubmissionForm() {
 				<CardDescription>Submit a suspicious website URL or email for analysis and to report it.</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<Tabs defaultValue="url" className="w-full">
+				<Tabs defaultValue="email" className="w-full">
 					<TabsList className="grid w-full grid-cols-2">
 						<TabsTrigger value="url">
 							<Link className="w-4 h-4 mr-2" />
@@ -168,8 +168,7 @@ export function SubmissionForm() {
 								</p>
 								<p className={`select-all mt-1 text-lg sm:text-xl font-semibold text-blue-900`}>report@phishing.support</p>
 								<p className={`text-sm mt-1 text-blue-800 select-none"}`}>
-									Attach the original email as a <span className="font-semibold">.eml</span> (Right click → "Forward as
-									attachment")
+									Right click on the original mail and choose "Forward as Attachment" (.eml) for best results.
 								</p>
 							</div>
 						</div>

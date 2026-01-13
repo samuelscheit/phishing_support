@@ -89,7 +89,8 @@ export class SubmissionsEntity {
 
 	/**
 	 * Finds a submission created from a given source.
-	 * Useful for sources like `imap:<uid>` that may also create derived submissions like `imap:<uid>:att1`.
+	 * Useful for sources like `imap:<account>:<mailbox>:<uidValidity>:<uid>` that may also create derived submissions like
+	 * `imap:<account>:<mailbox>:<uidValidity>:<uid>:att1`.
 	 */
 	static async findIdBySourcePrefix(sourcePrefix: string): Promise<bigint | undefined> {
 		const [row] = await db

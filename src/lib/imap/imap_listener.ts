@@ -1,12 +1,9 @@
-import crypto from "node:crypto";
-
 import { ImapFlow } from "imapflow";
 import { config as loadDotenv } from "dotenv";
 import { simpleParser, type AddressObject, type ParsedMail } from "mailparser";
 
 import { SubmissionsEntity } from "@/lib/db/entities";
 import { generateId } from "@/lib/db/ids";
-import { analyzeMail } from "@/lib/mail_ai";
 import { join } from "node:path";
 import { createEmailSubmissionFromEml } from "../../app/api/submissions/email/route";
 import { extractEmlsFromIncomingMessage } from "../mail_forwarded";
@@ -65,6 +62,7 @@ export async function startImapListener() {
 	const user = requiredEnv("IMAP_USER");
 	const pass = requiredEnv("IMAP_PASS");
 	const mailbox = requiredEnv("IMAP_MAILBOX");
+	const processSeen = envBool("IMAP_PROCESS_SEEN", false);
 
 	const client = new ImapFlow({
 		host,
@@ -101,12 +99,90 @@ export async function startImapListener() {
 	let lock = await client.getMailboxLock(mailbox);
 	try {
 		const mailboxExists = () => (client.mailbox && typeof client.mailbox === "object" ? (client.mailbox.exists ?? 0) : 0);
+		const mailboxUidValidity = () => (client.mailbox && typeof client.mailbox === "object" ? (client.mailbox.uidValidity ?? 0) : 0);
+
+		const mailboxKey = encodeURIComponent(mailbox);
+		const makeImapSourcePrefix = (uid: number) => `imap:${mailboxKey}:${mailboxUidValidity()}:${uid}`;
+
+		const processFetchedMessage = async (msg: any) => {
+			try {
+				if (!msg?.uid) return;
+				if (!processSeen && Array.isArray(msg.flags) && msg.flags.includes("\\Seen")) return;
+
+				console.log(`Processing IMAP message UID ${msg.uid}...`);
+				const sourcePrefix = makeImapSourcePrefix(msg.uid);
+				const existingSubmissionId = await SubmissionsEntity.findIdBySourcePrefix(sourcePrefix);
+				if (existingSubmissionId) {
+					console.log(`Skipping IMAP UID ${msg.uid}: already has submission ${existingSubmissionId.toString()}`);
+					try {
+						await client.messageFlagsAdd(msg.uid, ["\\Seen"], { uid: true });
+					} catch (e) {
+						console.error("Failed to mark IMAP message as seen (skip):", e);
+					}
+					return;
+				}
+
+				const raw = msg.source?.toString("utf-8") ?? "";
+				if (!raw.trim()) return;
+
+				let parsed: ParsedMail;
+				try {
+					parsed = await simpleParser(raw, { skipTextToHtml: true });
+				} catch (err) {
+					await SubmissionsEntity.create({
+						kind: "email",
+						data: { kind: "email" },
+						dedupeKey: sourcePrefix,
+						id: generateId(),
+						source: sourcePrefix,
+						status: "failed",
+						info: `Failed to parse incoming IMAP message: ${String(err)}`,
+					});
+					console.error("Error parsing IMAP message:", err);
+					return;
+				}
+
+				const isToListen =
+					addressObjectIncludes(parsed.to, listenAddress) ||
+					addressObjectIncludes(parsed.cc, listenAddress) ||
+					addressObjectIncludes(parsed.bcc, listenAddress);
+
+				if (!isToListen) return;
+
+				const emls = await extractEmlsFromIncomingMessage(parsed, listenAddress);
+				for (let i = 0; i < emls.length; i++) {
+					await createEmailSubmissionFromEml(emls[i], `${sourcePrefix}${emls.length > 1 ? `:att${i + 1}` : ""}`);
+				}
+
+				try {
+					await client.messageFlagsAdd(msg.uid, ["\\Seen"], { uid: true });
+				} catch (e) {
+					console.error("Failed to mark IMAP message as seen:", e);
+				}
+			} catch (err) {
+				console.error("Error processing IMAP message:", err);
+			}
+		};
+
+		const processRange = async (range: string, reason: string) => {
+			console.log(`Processing ${reason} IMAP messages in range ${range}...`);
+			for await (const msg of client.fetch(range, { uid: true, source: true, flags: true, envelope: true })) {
+				await processFetchedMessage(msg);
+			}
+		};
+
+		const initialExists = mailboxExists();
+		if (initialExists > 0) {
+			await processRange(`1:${initialExists}`, "existing");
+		}
+
 		let lastExists = mailboxExists();
 
 		while (!stopped) {
 			// Wait for new events from server
 			try {
 				await client.idle();
+				console.log("IMAP idle resumed.");
 			} catch (err) {
 				// Connection might have been interrupted; try to continue unless stopping
 				if (stopped) break;
@@ -116,70 +192,16 @@ export async function startImapListener() {
 			}
 
 			const currentExists = mailboxExists();
-			if (currentExists <= lastExists) continue;
+			if (currentExists < lastExists) {
+				lastExists = currentExists;
+				continue;
+			}
+			if (currentExists === lastExists) continue;
 
 			const range = `${lastExists + 1}:${currentExists}`;
 			lastExists = currentExists;
 
-			for await (const msg of client.fetch(range, { uid: true, source: true, flags: true, envelope: true })) {
-				try {
-					console.log(`Processing new IMAP message UID ${msg.uid}...`, msg);
-					const sourcePrefix = `imap:${msg.uid}`;
-					const existingSubmissionId = await SubmissionsEntity.findIdBySourcePrefix(sourcePrefix);
-					if (existingSubmissionId) {
-						console.log(`Skipping IMAP UID ${msg.uid}: already has submission ${existingSubmissionId.toString()}`);
-						try {
-							await client.messageFlagsAdd(msg.uid, ["\\Seen"], { uid: true });
-						} catch (e) {
-							console.error("Failed to mark IMAP message as seen (skip):", e);
-						}
-						continue;
-					}
-
-					const raw = msg.source?.toString("utf-8") ?? "";
-					if (!raw.trim()) continue;
-
-					let parsed: ParsedMail;
-					try {
-						parsed = await simpleParser(raw, { skipTextToHtml: true });
-					} catch (err) {
-						await SubmissionsEntity.create({
-							kind: "email",
-							data: { kind: "email" },
-							dedupeKey: `imap:${msg.uid}`,
-							id: generateId(),
-							source: sourcePrefix,
-							status: "failed",
-							info: `Failed to parse incoming IMAP message: ${String(err)}`,
-						});
-						console.error("Error parsing IMAP message:", err);
-						continue;
-					}
-
-					const isToListen =
-						addressObjectIncludes(parsed.to, listenAddress) ||
-						addressObjectIncludes(parsed.cc, listenAddress) ||
-						addressObjectIncludes(parsed.bcc, listenAddress);
-
-					if (!isToListen) continue;
-
-					const emls = await extractEmlsFromIncomingMessage(parsed, listenAddress);
-
-					for (let i = 0; i < emls.length; i++) {
-						await createEmailSubmissionFromEml(emls[i], `imap:${msg.uid}${emls.length > 1 ? `:att${i + 1}` : ""}`);
-					}
-
-					// Mark original message as seen after successful submission creation
-					try {
-						await client.messageFlagsAdd(msg.uid, ["\\Seen"], { uid: true });
-					} catch (e) {
-						console.error("Failed to mark IMAP message as seen:", e);
-						// ignore
-					}
-				} catch (err) {
-					console.error("Error processing new IMAP message:", err);
-				}
-			}
+			await processRange(range, "new");
 		}
 	} finally {
 		lock.release();

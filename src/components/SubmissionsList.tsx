@@ -43,9 +43,9 @@ export function SubmissionsList() {
 	return (
 		<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 			{submissions.map((s) => (
-				<Link key={s.id} href={`/submissions/${s.id}`}>
-					<Card className="hover:bg-accent transition-colors cursor-pointer h-full">
-						<CardContent className="py-4 space-y-2">
+				<Link key={s.id} href={`/submissions/${s.id}`} className="block h-full min-w-0">
+					<Card className="hover:bg-accent transition-colors cursor-pointer h-full w-full">
+						<CardContent className="py-4 space-y-2 min-w-0">
 							<div className="flex justify-between items-start gap-2">
 								<SubmissionStatus status={s.status} />
 
@@ -53,7 +53,7 @@ export function SubmissionsList() {
 									{formatDistanceToNow(new Date(s.createdAt), { addSuffix: true })}
 								</span>
 							</div>
-							<CardTitle className="text-lg line-clamp-1">
+							<CardTitle className="text-lg truncate min-w-0">
 								{s.data?.kind === "email" ? s.data.email?.subject || s.dedupeKey : s.data.website.url}
 							</CardTitle>
 						</CardContent>

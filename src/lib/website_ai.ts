@@ -21,7 +21,13 @@ export function retry(fn: () => Promise<any>, retries: number = 3, delayMs: numb
 	});
 }
 
-export async function analyzeWebsite(url: string, submissionId: bigint, user_country_code?: string): Promise<bigint> {
+export async function analyzeWebsite(options: {
+	mhtmlSnapshot?: Buffer;
+	url: string;
+	submissionId: bigint;
+	country_code?: string;
+}): Promise<bigint> {
+	const { url, submissionId, country_code } = options!;
 	try {
 		await emitStep(submissionId, "whois_lookup", 5);
 		const whois = await getInfo(url);
@@ -38,7 +44,7 @@ export async function analyzeWebsite(url: string, submissionId: bigint, user_cou
 		});
 
 		await emitStep(submissionId, "archive_website", 10);
-		const archive = await retry(() => archiveWebsite(url, user_country_code), 2, 3000);
+		const archive = await retry(() => archiveWebsite(options), 2, 3000);
 		await emitStep(submissionId, "save_artifacts", 40);
 
 		// await ArtifactsEntity.saveWebsiteArtifacts({ submissionId, archive });
@@ -82,7 +88,7 @@ Use web search if necessary to gather more information about the content/brand. 
 					},
 				],
 				reasoning: {
-					effort: "high",
+					effort: "medium",
 					summary: "detailed",
 				},
 				tools: [{ type: "web_search" }],
@@ -138,7 +144,7 @@ Use web search if necessary to gather more information about the content/brand. 
 					screenshotPng: archive.screenshotPng,
 					mhtml: archive.mhtml,
 				},
-				countryCode: user_country_code,
+				countryCode: country_code,
 			});
 
 			await emitStep(submissionId, "reporting to Google Safe Browsing", 90);

@@ -8,7 +8,10 @@ import { createWebsiteSubmission } from "../../app/api/submissions/website/route
 export async function reportEmailPhishing(params: { submissionId: bigint; mail: MailData; analysisText: string }) {
 	try {
 		getMailLinks(params.mail).forEach((link) => {
-			createWebsiteSubmission(link.href, undefined, `email:${params.submissionId.toString()}`).catch(console.error);
+			createWebsiteSubmission({
+				url: link.href,
+				source: `email:${params.submissionId.toString()}`,
+			}).catch(console.error);
 		});
 	} catch (error) {
 		console.error("Error extracting mail links:", error);

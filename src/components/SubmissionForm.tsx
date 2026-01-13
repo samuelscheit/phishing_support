@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,8 +13,43 @@ export function SubmissionForm() {
 	const router = useRouter();
 	const [url, setUrl] = useState("");
 	const [file, setFile] = useState<File | null>(null);
+	const [showWebsiteSnapshotInput, setShowWebsiteSnapshotInput] = useState(false);
+	const [websiteSnapshotFile, setWebsiteSnapshotFile] = useState<File | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const email = "report@phishing.support";
+	const websiteSnapshotInputRef = useRef<HTMLInputElement | null>(null);
+
+	useEffect(() => {
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key !== "Shift" || e.repeat) return;
+
+			const el = document.activeElement as HTMLElement | null;
+			const tag = el?.tagName?.toLowerCase();
+			const isTypingTarget = tag === "input" || tag === "textarea" || (el as any)?.isContentEditable;
+			if (isTypingTarget) return;
+
+			setShowWebsiteSnapshotInput((v) => !v);
+		};
+
+		window.addEventListener("keydown", onKeyDown);
+		return () => window.removeEventListener("keydown", onKeyDown);
+	}, []);
+
+	useEffect(() => {
+		if (!showWebsiteSnapshotInput) {
+			setWebsiteSnapshotFile(null);
+			return;
+		}
+		websiteSnapshotInputRef.current?.focus();
+	}, [showWebsiteSnapshotInput]);
+
+	const fileToDataUrl = (f: File) =>
+		new Promise<string>((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onerror = () => reject(new Error("Failed to read file"));
+			reader.onload = () => resolve(String(reader.result || ""));
+			reader.readAsDataURL(f);
+		});
 
 	const copyEmail = async () => {
 		try {
@@ -39,9 +74,18 @@ export function SubmissionForm() {
 
 		setIsSubmitting(true);
 		try {
+			let mhtml_base64: string | undefined;
+			if (showWebsiteSnapshotInput && websiteSnapshotFile) {
+				const MAX_MHTML_BYTES = 25 * 1024 * 1024;
+				if (websiteSnapshotFile.size > MAX_MHTML_BYTES) {
+					throw new Error("MHTML snapshot too large");
+				}
+				mhtml_base64 = await fileToDataUrl(websiteSnapshotFile);
+			}
+
 			const res = await fetch("/api/submissions/website", {
 				method: "POST",
-				body: JSON.stringify({ url }),
+				body: JSON.stringify({ url, mhtml_base64 }),
 				headers: { "Content-Type": "application/json" },
 			});
 			const data = await res.json();
@@ -109,6 +153,31 @@ export function SubmissionForm() {
 									required
 								/>
 							</div>
+
+							{showWebsiteSnapshotInput ? (
+								<div className="space-y-2">
+									<div className="flex items-center justify-between gap-2">
+										<Label htmlFor="websiteSnapshot">Website snapshot (optional)</Label>
+										<span className="text-xs text-muted-foreground">
+											Press Shift to {showWebsiteSnapshotInput ? "hide" : "show"}
+										</span>
+									</div>
+									<Input
+										ref={websiteSnapshotInputRef}
+										id="websiteSnapshot"
+										type="file"
+										accept=".mhtml,.mht"
+										onChange={(e) => setWebsiteSnapshotFile(e.target.files?.[0] || null)}
+									/>
+									{websiteSnapshotFile ? (
+										<p className="text-xs text-muted-foreground">Selected: {websiteSnapshotFile.name}</p>
+									) : (
+										<p className="text-xs text-muted-foreground">
+											Upload an MHTML snapshot to analyze without loading the live site.
+										</p>
+									)}
+								</div>
+							) : undefined}
 							<Button type="submit" className="w-full" disabled={isSubmitting}>
 								{isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
 								Report Website

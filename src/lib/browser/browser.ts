@@ -6,7 +6,7 @@ import { userAgent } from "../constants";
 
 let browserPromise: Promise<Browser> | null = null;
 
-export async function getBrowser() {
+export async function getBrowser(use_puppeteer_core = false): Promise<Browser> {
 	if (browserPromise) return browserPromise;
 	// TODO: harden puppeteer/browser for security
 
@@ -38,7 +38,7 @@ export async function getBrowser() {
 		args.push("--no-sandbox", "--disable-setuid-sandbox");
 	}
 
-	browserPromise = launch({
+	const options = {
 		executablePath: chromePath,
 		headless: false,
 		// userDataDir,
@@ -49,7 +49,16 @@ export async function getBrowser() {
 		},
 		acceptInsecureCerts: true,
 		dumpio: true,
-	});
+	} as const;
+
+	if (use_puppeteer_core) {
+		const puppeteerCore = await import("puppeteer-core");
+		// @ts-ignore
+		browserPromise = puppeteerCore.launch(options);
+		return browserPromise!;
+	}
+
+	browserPromise = launch(options as any);
 
 	return browserPromise;
 }

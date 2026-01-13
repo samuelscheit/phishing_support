@@ -87,11 +87,12 @@ export async function startImapListener() {
 			// ignore
 		}
 		console.log("IMAP client stopped.");
-		process.exit(0);
+
+		startImapListener();
 	};
 
-	process.on("SIGINT", () => void stop());
-	process.on("SIGTERM", () => void stop());
+	// process.on("SIGINT", () => void stop());
+	// process.on("SIGTERM", () => void stop());
 
 	console.log("Connecting to IMAP server...");
 

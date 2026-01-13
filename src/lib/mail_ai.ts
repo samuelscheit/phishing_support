@@ -57,6 +57,7 @@ export async function parseMail(eml: string) {
 
 	return {
 		eml,
+		date: parsedMail.date?.getTime() || Date.now(),
 		from: getAddressesText(parsedMail.from),
 		from_object: parsedMail.from?.value[0],
 		to: getAddressesText(parsedMail.to),
@@ -83,7 +84,8 @@ export type MailData = Awaited<ReturnType<typeof parseMail>>;
 
 export async function analyzeMail(emlContent: string, stream_id: bigint) {
 	try {
-		const mail = cleanPrivateInformation(await parseMail(emlContent));
+		const privateMail = await parseMail(emlContent);
+		const mail = cleanPrivateInformation(privateMail);
 
 		await emitStep(stream_id, "start", 0);
 		await SubmissionsEntity.update(stream_id, { status: "running", data: { kind: "email", email: mail } });
@@ -187,6 +189,11 @@ ${toon.encode({ ...mail, eml: undefined })}`,
 		});
 		const { phishing } = structuredResponse.output_parsed || ({} as { phishing: boolean });
 
+		const from = process.env.SMTP_FROM || `${abuseReplyName} <${abuseReplyMail}>`;
+		const to = privateMail.to_object?.address;
+		const date = mail.date ? new Date(mail.date).toLocaleString("en-US", { timeZone: "UTC" }) : undefined;
+		const submissionSubject = `"${mail.to_object?.name || mail.to_object?.address}" ${date ? "from " + date : ""}`;
+
 		if (phishing) {
 			await emitStep(stream_id, "reporting", 90);
 			await reportEmailPhishing({
@@ -194,32 +201,39 @@ ${toon.encode({ ...mail, eml: undefined })}`,
 				mail,
 				analysisText: analysis.output_text,
 			});
+
+			var subject = `Phishing Reported - ${submissionSubject}`;
+			var body = [
+				`Thank you very much for your report!`,
+				"",
+				`We have analyzed the email you provided and determined that it is indeed a phishing attempt.`,
+				"",
+				`Your submission has been reported to the relevant email providers and hosting services involved.`,
+				`You can view details at: ${abuseReplyUrl}/submissions/${stream_id}`,
+				"",
+				`Thank you for helping to combat phishing!`,
+				`Your ${abuseReplyName} Team`,
+			].join("\n");
 		} else {
 			await markSubmissionInvalid(stream_id);
+
+			var subject = `Not Phishing - ${submissionSubject}`;
+			var body = [
+				`Thank you for your report. We analyzed the email you provided and determined that it is not a phishing attempt.`,
+				"",
+				`As a result, we have marked this submission as invalid.`,
+				`You can view details at: ${abuseReplyUrl}/submissions/${stream_id}`,
+				"",
+				`If you believe this is an error, please feel free to reach out to us at ${abuseReplyMail}.`,
+				"",
+				`Thank you for helping to combat phishing!`,
+				`Your ${abuseReplyName} Team`,
+			].join("\n");
 		}
 
 		// Send a brief notification back to the reporter with the result and a link
 		try {
-			const from = process.env.SMTP_FROM || `${abuseReplyName} <${abuseReplyMail}>`;
-			const to = mail.from || "";
-			if (to) {
-				const reportedText = phishing
-					? "The email was identified as phishing and we have reported this case to the responsible providers."
-					: "We did not identify this as phishing and marked the submission as invalid.";
-				const subject = `Phishing Support — Submission ${stream_id} analysis result`;
-				const body = [
-					`Hi,`,
-					"",
-					`Thank you for your submission (ID: ${stream_id}). We analyzed the email you provided and here are the results:`,
-					"",
-					reportedText,
-					"",
-					`You can view details at: ${abuseReplyUrl}submissions/${stream_id}`,
-					"",
-					`Thank you very much for helping to combat phishing!`,
-					`Your ${abuseReplyName} Team`,
-				].join("\n");
-
+			if (to && from && subject && body) {
 				await mailer?.sendMail({ from, to, subject, text: body });
 			}
 		} catch (err) {

@@ -196,7 +196,7 @@ ${toon.encode({ ...mail, eml: undefined })}`,
 
 		const from = process.env.SMTP_FROM || `${abuseReplyName} <${abuseReplyMail}>`;
 		const date = mail.date ? new Date(mail.date).toLocaleString("en-US", { timeZone: "UTC" }) : undefined;
-		const submissionSubject = `"${mail.to_object?.name || mail.to_object?.address}" ${date ? "from " + date : ""}`;
+		const submissionSubject = `"${mail.from_object?.name || mail.from_object?.address}" ${date ? "from " + date : ""}`;
 		let to = privateMail.to_object?.address;
 
 		if (to?.endsWith("@phishing.support")) {

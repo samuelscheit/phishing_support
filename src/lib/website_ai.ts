@@ -71,7 +71,7 @@ ${archive.html.toString().slice(0, 10000)}
 
 Please provide a detailed phishing analysis of the website.
 Research if the website impersonates another brand/service using web_search. If possible the exact impersonated brand website URL address.
-Use web search if necessary to gather more information about the content/brand. (the website might be new and doesn't have any web results yet). (also you might not be able to access the website directly use the provided website text and screenshot).`,
+Use web search if necessary to gather more information about the content/brand. (the website might be new and doesn't have any web results yet). (you are not be able to access the website directly use the provided website text, html and screenshot).`,
 							},
 							{
 								type: "input_image" as const,

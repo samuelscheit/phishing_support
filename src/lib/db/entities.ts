@@ -71,6 +71,16 @@ export class SubmissionsEntity {
 		await db.update(submissions).set({ status, info, updatedAt: nowDate() }).where(eq(submissions.id, id));
 	}
 
+	static async failAllRunning(params?: { info?: string }) {
+		const info = params?.info ?? "Marked as failed (previous run did not complete).";
+		const rows = await db
+			.update(submissions)
+			.set({ status: "failed", info, updatedAt: nowDate() })
+			.where(eq(submissions.status, "running"))
+			.returning({ id: submissions.id });
+		return rows;
+	}
+
 	static async update(id: bigint, values: Partial<typeof submissions.$inferInsert>) {
 		await db
 			.update(submissions)

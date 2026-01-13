@@ -2,6 +2,7 @@ import next from "next";
 import { createServer } from "node:http";
 
 import { startImapListener } from "./lib/imap/imap_listener";
+import { SubmissionsEntity } from "./lib/db/entities";
 
 function envInt(name: string, defaultValue: number): number {
 	const raw = process.env[name];
@@ -18,6 +19,17 @@ const app = next({ dev, hostname, port, customServer: true });
 const handler = app.getRequestHandler();
 
 await app.prepare();
+
+// If the process previously crashed/restarted, we may have submissions stuck in `running`.
+// Mark them as failed so they can be retried or inspected.
+try {
+	const failed = await SubmissionsEntity.failAllRunning();
+	if (failed.length > 0) {
+		console.warn(`Marked ${failed.length} running submissions as failed on startup.`);
+	}
+} catch (err) {
+	console.error("Failed to mark running submissions as failed on startup:", err);
+}
 
 // Start IMAP listener in the same process
 startImapListener().catch((err) => {

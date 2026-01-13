@@ -29,10 +29,3 @@ Only submit emails or links that you are allowed to share publicly. The project 
 
 Contributions, bug reports, and improvements are welcome. Please open issues or pull requests on the project's repository. When contributing, keep changes focused and include tests where appropriate.
 
-## Maintainer & Contact
-
-This instance of the project was created by Samuel Scheit. If you need to reach the project maintainer, check the website or the contact information in the app.
-
-## Thanks
-
-Thank you for checking out Phishing Support - every contribution and report helps make the web safer.

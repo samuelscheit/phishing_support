@@ -21,7 +21,7 @@ export async function runStreamedAnalysisRun(params: { submissionId: bigint; opt
 
 	try {
 		params.options.stream = true;
-		var stream = await retry(() => model.responses.create(params.options), 1, 2000);
+		var stream = await retry(() => model.responses.create(params.options), 3, 2000);
 	} catch (err) {
 		console.dir(params.options, { depth: null });
 		console.dir(err, { depth: null });

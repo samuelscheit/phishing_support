@@ -142,12 +142,13 @@ export class AnalysisRunsEntity {
 		return result;
 	}
 
-	static async complete(runId: bigint, output?: Array<ResponseOutputItem>) {
+	static async complete(runId: bigint, output?: Array<ResponseOutputItem>, tokensUsed?: number) {
 		const result = await db
 			.update(analysisRuns)
 			.set({
 				status: "completed",
 				output: output,
+				tokensUsed: tokensUsed,
 			})
 			.where(eq(analysisRuns.id, runId))
 			.returning();

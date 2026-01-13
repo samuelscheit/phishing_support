@@ -60,7 +60,7 @@ export async function logAndPersistStream(response: Stream<ResponseStreamEvent>,
 				};
 
 				// Persist final result to DB
-				await AnalysisRunsEntity.complete(runId, result.output);
+				await AnalysisRunsEntity.complete(runId, result.output, result.usage?.total_tokens);
 
 				await emitEvent({ type: "run.completed", result });
 

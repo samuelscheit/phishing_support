@@ -78,6 +78,7 @@ export const analysisRuns = sqliteTable(
 		status: text("status", { enum: analysisRunStatus }).notNull().default("running"),
 		input: text("input", { mode: "json" }).$type<Array<ResponseInputItem>>(),
 		output: text("output", { mode: "json" }).$type<Array<ResponseOutputItem>>(),
+		tokensUsed: int("tokens_used"),
 		data: text("data", { mode: "json" }),
 		createdAt: timestamp("created_at")
 			.notNull()

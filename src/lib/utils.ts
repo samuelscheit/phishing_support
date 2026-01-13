@@ -160,7 +160,7 @@ export const model = new OpenAI({
 	baseURL: process.env.OPENAI_API_BASE_URL || "https://api.openai.com/v1",
 	// fetch,
 	fetchOptions: {
-		...getProxyOptions(),
+		// ...getProxyOptions(),
 		verbose: true,
 	},
 });

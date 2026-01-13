@@ -1,4 +1,4 @@
-import { ImapFlow } from "imapflow";
+import { FetchMessageObject, ImapFlow } from "imapflow";
 import { config as loadDotenv } from "dotenv";
 import { simpleParser, type AddressObject, type ParsedMail } from "mailparser";
 
@@ -104,12 +104,12 @@ export async function startImapListener() {
 		const mailboxKey = encodeURIComponent(mailbox);
 		const makeImapSourcePrefix = (uid: number) => `imap:${mailboxKey}:${mailboxUidValidity()}:${uid}`;
 
-		const processFetchedMessage = async (msg: any) => {
+		const processFetchedMessage = async (msg: FetchMessageObject) => {
 			try {
 				if (!msg?.uid) return;
-				if (!processSeen && Array.isArray(msg.flags) && msg.flags.includes("\\Seen")) return;
+				console.log(`Processing IMAP message UID ${msg.uid}...`, msg.flags);
+				if (!processSeen && msg.flags?.has("\\Seen")) return;
 
-				console.log(`Processing IMAP message UID ${msg.uid}...`);
 				const sourcePrefix = makeImapSourcePrefix(msg.uid);
 				const existingSubmissionId = await SubmissionsEntity.findIdBySourcePrefix(sourcePrefix);
 				if (existingSubmissionId) {

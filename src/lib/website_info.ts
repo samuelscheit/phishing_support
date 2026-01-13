@@ -152,6 +152,7 @@ async function queryRDAPDomain(domain: string): Promise<RDAPDomainInfo | undefin
 			headers: {
 				Accept: "application/rdap+json",
 			},
+			verbose: true,
 			...getProxyOptions(),
 		})
 	);
@@ -166,11 +167,12 @@ async function queryRDAPDomain(domain: string): Promise<RDAPDomainInfo | undefin
 
 async function queryIP(ip: string): Promise<RDAPIPInfo> {
 	const response = await retry(() =>
-		fetch(`https://rdap.db.ripe.net/ip/${ip}`, {
+		fetch(`https://rdap.arin.net/registry/ip/${ip}`, {
 			method: "GET",
 			headers: {
 				Accept: "application/rdap+json",
 			},
+			verbose: true,
 			...getProxyOptions(),
 		})
 	);

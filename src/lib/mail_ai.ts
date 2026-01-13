@@ -28,7 +28,8 @@ function recursiveClean(node: any, info: string[]): any {
 	} else if (typeof node === "string") {
 		let cleaned = node;
 		for (const inf of info) {
-			cleaned = cleaned.replaceAll(inf, "[redacted]");
+			const regex = inf.replaceAll(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+			cleaned = cleaned.replace(new RegExp(`(\\s${regex})|(${regex}\\s)`, "gi"), "[redacted]");
 		}
 		return cleaned;
 	} else {

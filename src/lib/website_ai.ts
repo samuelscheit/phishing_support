@@ -149,11 +149,15 @@ Use web search if necessary to gather more information about the content/brand. 
 
 			await emitStep(submissionId, "reporting to Google Safe Browsing", 90);
 
-			await reportToGoogleSafeBrowsing({
-				url,
-				submissionId,
-				analysisText: analysis.output_text,
-			});
+			try {
+				await reportToGoogleSafeBrowsing({
+					url,
+					submissionId,
+					analysisText: analysis.output_text,
+				});
+			} catch (err) {
+				console.error("Failed to report to Google Safe Browsing:", err);
+			}
 		} else {
 			await markSubmissionInvalid(submissionId);
 		}
